@@ -288,7 +288,7 @@ export default function Dashboard() {
                 )}
                 {tab === 'attendance' && <AttendanceTab attendance={attendance} disciplines={disciplines} discNames={discNames} />}
                 {tab === 'progress' && <ProgressTab progress={progress} disciplines={disciplines} onViewCoach={(coachId) => { setViewCoachId(coachId); setViewCoachAssigned(coachId === ptCoachId); setShowCoachProfile(true) }} />}
-                {tab === 'workouts' && <WorkoutsTab athlete={athlete} disciplines={disciplines} discNames={discNames} />}
+                {tab === 'workouts' && <WorkoutsTab athlete={athlete} disciplines={disciplines} />}
                 {tab === 'pt' && <PTTab ptBalance={ptBalance} ptBookings={ptBookings} ptCoach={ptCoach} ptCoachId={ptCoachId} athlete={athlete} onBook={() => setShowPTBooking(true)} onCancelled={loadData} onViewCoach={ptCoachId ? () => { setViewCoachId(ptCoachId); setViewCoachAssigned(true); setShowCoachProfile(true) } : undefined} />}
                 {tab === 'coaches' && <CoachesTab ptCoachId={ptCoachId} branchId={athlete?.branch_id} onViewCoach={(id) => { setViewCoachId(id); setViewCoachAssigned(id === ptCoachId); setShowCoachProfile(true) }} />}
               </div>
@@ -722,7 +722,7 @@ function normalizeDay(v) {
     if (v >= 0 && v <= 6) return WEEK_DAYS[(v + 6) % 7]
   }
   const s = String(v).trim().toLowerCase()
-  return WEEK_DAYS.find((d) => d.toLowerCase() === s) || String(v)
+  return WEEK_DAYS.find((d) => d.toLowerCase() === s || d.toLowerCase().startsWith(s)) || String(v)
 }
 
 function formatTime12(hms) {
@@ -735,10 +735,17 @@ function formatTime12(hms) {
   return `${h}:${m.slice(0, 2)} ${ampm}`
 }
 
-function WorkoutsTab({ athlete, disciplines, discNames }) {
+const CLASS_CATEGORIES = [
+  { id: 'martial_arts_kids', label: 'Martial arts kids' },
+  { id: 'martial_arts_adults', label: 'Martial arts adults' },
+  { id: 'fitness_kids', label: 'Fitness kids' },
+  { id: 'fitness_adults', label: 'Fitness adults' },
+]
+
+function WorkoutsTab({ athlete, disciplines }) {
   const [schedule, setSchedule] = useState([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState(discNames.length > 0 ? 'mine' : 'all')
+  const [filter, setFilter] = useState('all')
 
   useEffect(() => {
     if (!athlete?.branch_id) { setSchedule([]); setLoading(false); return }
@@ -756,14 +763,12 @@ function WorkoutsTab({ athlete, disciplines, discNames }) {
     return () => { active = false }
   }, [athlete?.branch_id])
 
-  const myDiscIds = new Set(discNames.map((d) => d.id))
   const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' })
 
   const filtered = schedule.filter((c) => {
     if (c.is_active === false) return false
     if (filter === 'all') return true
-    if (filter === 'mine') return myDiscIds.has(c.discipline_id)
-    return c.discipline_id === filter
+    return c.category === filter
   })
 
   const byDay = {}
@@ -798,28 +803,15 @@ function WorkoutsTab({ athlete, disciplines, discNames }) {
         >
           All classes
         </button>
-        {discNames.length > 0 && (
+        {CLASS_CATEGORIES.map((cat) => (
           <button
-            className={`filter-chip ${filter === 'mine' ? 'active' : ''}`}
-            onClick={() => setFilter('mine')}
+            key={cat.id}
+            className={`filter-chip ${filter === cat.id ? 'active' : ''}`}
+            onClick={() => setFilter(cat.id)}
           >
-            My disciplines
+            {cat.label}
           </button>
-        )}
-        {discNames.map((d) => {
-          const isActive = filter === d.id
-          const c = d.color || '#64748B'
-          return (
-            <button
-              key={d.id}
-              className={`filter-chip ${isActive ? 'active' : ''}`}
-              style={isActive ? { background: c + '22', color: c, borderColor: c + '44' } : undefined}
-              onClick={() => setFilter(d.id)}
-            >
-              {d.name}
-            </button>
-          )
-        })}
+        ))}
       </div>
 
       {daysToShow.length === 0 ? (
@@ -857,6 +849,7 @@ function WorkoutsTab({ athlete, disciplines, discNames }) {
                               {disc.name}
                             </span>
                           )}
+                          {c.coach && <span className="class-location">· {c.coach}</span>}
                           {c.location && <span className="class-location">· {c.location}</span>}
                           {c.capacity && <span className="class-location">· {c.capacity} spots</span>}
                         </div>

@@ -1,5 +1,5 @@
-const CACHE_NAME = 'primal-athlete-v1';
-const PRECACHE_URLS = ['/', '/index.html'];
+const CACHE_NAME = 'primal-athlete-v2';
+const PRECACHE_URLS = ['/', '/index.html', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
