@@ -288,7 +288,7 @@ export default function Dashboard() {
                 )}
                 {tab === 'attendance' && <AttendanceTab attendance={attendance} disciplines={disciplines} discNames={discNames} />}
                 {tab === 'progress' && <ProgressTab progress={progress} disciplines={disciplines} onViewCoach={(coachId) => { setViewCoachId(coachId); setViewCoachAssigned(coachId === ptCoachId); setShowCoachProfile(true) }} />}
-                {tab === 'workouts' && <WorkoutsTab attendance={attendance} disciplines={disciplines} />}
+                {tab === 'workouts' && <WorkoutsTab athlete={athlete} disciplines={disciplines} discNames={discNames} />}
                 {tab === 'pt' && <PTTab ptBalance={ptBalance} ptBookings={ptBookings} ptCoach={ptCoach} ptCoachId={ptCoachId} athlete={athlete} onBook={() => setShowPTBooking(true)} onCancelled={loadData} onViewCoach={ptCoachId ? () => { setViewCoachId(ptCoachId); setViewCoachAssigned(true); setShowCoachProfile(true) } : undefined} />}
                 {tab === 'coaches' && <CoachesTab ptCoachId={ptCoachId} branchId={athlete?.branch_id} onViewCoach={(id) => { setViewCoachId(id); setViewCoachAssigned(id === ptCoachId); setShowCoachProfile(true) }} />}
               </div>
@@ -710,52 +710,165 @@ function ProgressTab({ progress, disciplines, onViewCoach }) {
 }
 
 /* ════════════════════════════════════════════════════════
-   WORKOUTS TAB
+   WORKOUTS TAB — live class schedule
    ════════════════════════════════════════════════════════ */
-function WorkoutsTab({ attendance, disciplines }) {
-  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-  const byDay = {}
+const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
-  attendance.filter((a) => a.present).forEach((a) => {
-    if (!a.date) return
-    const d = new Date(a.date)
-    const day = dayNames[d.getDay()]
-    if (!byDay[day]) byDay[day] = []
-    const className = a.class_name || discName(a.discipline_id, disciplines)
-    const time = a.time || d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-    const disc = disciplines.find((x) => x.id === a.discipline_id)
-    if (!byDay[day].find((x) => x.name === className)) {
-      byDay[day].push({ name: className, time, disc })
-    }
+function normalizeDay(v) {
+  if (v == null) return ''
+  if (typeof v === 'number') {
+    // Accept both 0-6 (Sun-Sat) and 1-7 (Mon-Sun) conventions
+    if (v >= 1 && v <= 7) return WEEK_DAYS[v - 1]
+    if (v >= 0 && v <= 6) return WEEK_DAYS[(v + 6) % 7]
+  }
+  const s = String(v).trim().toLowerCase()
+  return WEEK_DAYS.find((d) => d.toLowerCase() === s) || String(v)
+}
+
+function formatTime12(hms) {
+  if (!hms) return ''
+  const [hStr, m = '00'] = String(hms).split(':')
+  let h = parseInt(hStr, 10)
+  if (isNaN(h)) return String(hms)
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  h = h % 12 || 12
+  return `${h}:${m.slice(0, 2)} ${ampm}`
+}
+
+function WorkoutsTab({ athlete, disciplines, discNames }) {
+  const [schedule, setSchedule] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState(discNames.length > 0 ? 'mine' : 'all')
+
+  useEffect(() => {
+    if (!athlete?.branch_id) { setSchedule([]); setLoading(false); return }
+    let active = true
+    ;(async () => {
+      setLoading(true)
+      const { data } = await supabase
+        .from('class_schedules')
+        .select('*')
+        .eq('branch_id', athlete.branch_id)
+      if (!active) return
+      setSchedule(data || [])
+      setLoading(false)
+    })()
+    return () => { active = false }
+  }, [athlete?.branch_id])
+
+  const myDiscIds = new Set(discNames.map((d) => d.id))
+  const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' })
+
+  const filtered = schedule.filter((c) => {
+    if (c.is_active === false) return false
+    if (filter === 'all') return true
+    if (filter === 'mine') return myDiscIds.has(c.discipline_id)
+    return c.discipline_id === filter
   })
 
-  const sortedDays = dayNames.filter((d) => byDay[d])
+  const byDay = {}
+  filtered.forEach((c) => {
+    const day = normalizeDay(c.day_of_week) || 'Other'
+    ;(byDay[day] ||= []).push(c)
+  })
+  Object.values(byDay).forEach((arr) =>
+    arr.sort((a, b) => String(a.start_time || '').localeCompare(String(b.start_time || '')))
+  )
 
-  if (!sortedDays.length) return <Empty text="No schedule data yet. Attend classes to build your schedule." />
+  const todayIdx = WEEK_DAYS.indexOf(todayName)
+  const orderedDays = todayIdx >= 0
+    ? [...WEEK_DAYS.slice(todayIdx), ...WEEK_DAYS.slice(0, todayIdx)]
+    : WEEK_DAYS
+  const daysToShow = orderedDays.filter((d) => byDay[d]?.length)
+
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '40px 0', color: 'var(--pf-text3)', fontSize: 13 }}>
+      <div className="spinner" /> Loading schedule...
+    </div>
+  )
+
+  if (!schedule.length) return <Empty text="No class schedule available yet." />
 
   return (
     <>
-      {sortedDays.map((day) => (
-        <div key={day} className="schedule-day">
-          <div className="day-badge">{day}</div>
-          {byDay[day].map((w, i) => (
-            <div key={i} className="workout-item">
-              <div>
-                <div className="workout-name">{w.name}</div>
-                <div className="workout-time">{w.time}</div>
-              </div>
-              {w.disc && (
-                <span
-                  className="workout-disc"
-                  style={{ background: (w.disc.color || '#64748B') + '20', color: w.disc.color || '#64748B' }}
-                >
-                  {w.disc.name}
+      <div className="schedule-filters">
+        <button
+          className={`filter-chip ${filter === 'all' ? 'active' : ''}`}
+          onClick={() => setFilter('all')}
+        >
+          All classes
+        </button>
+        {discNames.length > 0 && (
+          <button
+            className={`filter-chip ${filter === 'mine' ? 'active' : ''}`}
+            onClick={() => setFilter('mine')}
+          >
+            My disciplines
+          </button>
+        )}
+        {discNames.map((d) => {
+          const isActive = filter === d.id
+          const c = d.color || '#64748B'
+          return (
+            <button
+              key={d.id}
+              className={`filter-chip ${isActive ? 'active' : ''}`}
+              style={isActive ? { background: c + '22', color: c, borderColor: c + '44' } : undefined}
+              onClick={() => setFilter(d.id)}
+            >
+              {d.name}
+            </button>
+          )
+        })}
+      </div>
+
+      {daysToShow.length === 0 ? (
+        <Empty text="No classes match this filter." />
+      ) : (
+        daysToShow.map((day) => {
+          const isToday = day === todayName
+          return (
+            <div key={day} className="schedule-day">
+              <div className={`day-header${isToday ? ' is-today' : ''}`}>
+                <span className="day-name">{day}</span>
+                {isToday && <span className="today-pill">Today</span>}
+                <span className="day-count">
+                  {byDay[day].length} class{byDay[day].length !== 1 ? 'es' : ''}
                 </span>
-              )}
+              </div>
+              <div className="class-list">
+                {byDay[day].map((c) => {
+                  const disc = disciplines.find((x) => x.id === c.discipline_id)
+                  const color = disc?.color || '#64748B'
+                  return (
+                    <div key={c.id} className="class-card" style={{ '--class-accent': color }}>
+                      <div className="class-time">
+                        <div className="class-time-start">{formatTime12(c.start_time)}</div>
+                        {c.end_time && <div className="class-time-end">{formatTime12(c.end_time)}</div>}
+                      </div>
+                      <div className="class-info">
+                        <div className="class-name">{c.name || discName(c.discipline_id, disciplines) || 'Class'}</div>
+                        <div className="class-meta">
+                          {disc && (
+                            <span
+                              className="class-disc"
+                              style={{ background: color + '22', color, borderColor: color + '33' }}
+                            >
+                              {disc.name}
+                            </span>
+                          )}
+                          {c.location && <span className="class-location">· {c.location}</span>}
+                          {c.capacity && <span className="class-location">· {c.capacity} spots</span>}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
-          ))}
-        </div>
-      ))}
+          )
+        })
+      )}
     </>
   )
 }

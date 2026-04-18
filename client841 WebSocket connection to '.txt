@@ -1,0 +1,21 @@
+client:841 WebSocket connection to 'ws://localhost:5177/?token=QxD6D_dd9gez' failed: 
+createConnection @ client:841
+connect @ client:400
+connect @ client:847
+connect @ client:278
+connect @ client:362
+(anonymous) @ client:926Understand this error
+client:851 WebSocket connection to 'ws://localhost:5174/?token=QxD6D_dd9gez' failed: 
+createConnection @ client:851
+connect @ client:400
+connect @ client:855Understand this error
+(index):1 <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes">Understand this warning
+bsxcirxrrzleniqdhcjs.supabase.co/rest/v1/personal_training_bookings?select=*&student_id=eq.edb8dc7a-f163-4d29-901a-7e2639117eb0&order=session_date.desc&limit=20:1  Failed to load resource: the server responded with a status of 400 ()Understand this error
+bsxcirxrrzleniqdhcjs.supabase.co/rest/v1/personal_training_bookings?select=*&student_id=eq.edb8dc7a-f163-4d29-901a-7e2639117eb0&order=session_date.desc&limit=20:1  Failed to load resource: the server responded with a status of 400 ()Understand this error
+1001client:438 Uncaught (in promise) TypeError: Cannot read properties of undefined (reading 'send')
+    at Object.send (client:438:7)
+    at Object.send (client:876:16)
+    at Object.send (client:307:21)
+    at Object.send (client:385:30)
+    at sendError (client:480:13)
+    at client:519:4

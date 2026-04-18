@@ -687,63 +687,167 @@ html, body {
 }
 
 /* --- Schedule / Workouts --- */
-.schedule-day {
-  margin-bottom: 12px;
-}
-
-.day-badge {
-  display: inline-flex;
-  align-items: center;
+.schedule-filters {
+  display: flex;
   gap: 6px;
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-family: 'Barlow Condensed', sans-serif;
+  overflow-x: auto;
+  padding: 2px 2px 14px;
+  margin: 0 -2px 2px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.schedule-filters::-webkit-scrollbar { display: none; }
+
+.filter-chip {
+  flex-shrink: 0;
+  padding: 6px 13px;
+  font-size: 11px;
   font-weight: 600;
-  font-size: 12px;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
+  color: var(--pf-text2);
+  background: var(--pf-surface2);
+  border: 1px solid var(--pf-border);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
+  white-space: nowrap;
+  font-family: inherit;
+  letter-spacing: 0.2px;
+}
+.filter-chip:hover {
+  background: var(--pf-surface3);
+  color: var(--pf-text);
+}
+.filter-chip:active { transform: scale(0.97); }
+.filter-chip.active {
   background: var(--pf-blue-glow);
   color: var(--pf-blue-light);
-  border: 1px solid rgba(27, 94, 197, 0.2);
-  margin-bottom: 8px;
+  border-color: rgba(27, 94, 197, 0.28);
 }
 
-.workout-item {
-  background: var(--pf-surface2);
-  border-radius: var(--pf-radius-sm);
-  padding: 12px 14px;
-  margin-bottom: 6px;
+.schedule-day {
+  margin-bottom: 18px;
+}
+
+.day-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding: 2px 2px;
+}
+.day-header .day-name {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--pf-text);
+}
+.day-header.is-today .day-name { color: var(--pf-blue-light); }
+.today-pill {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--pf-blue-light);
+  color: #fff;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+.day-count {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--pf-text3);
+  letter-spacing: 0.2px;
+}
+
+.class-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.class-card {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  padding: 11px 14px 11px 12px;
+  background: var(--pf-surface2);
   border: 1px solid var(--pf-border);
-  transition: background 0.15s;
+  border-left: 3px solid var(--class-accent, var(--pf-border2));
+  border-radius: var(--pf-radius-sm);
+  transition: background 0.15s ease, transform 0.18s ease, box-shadow 0.18s ease, border-color 0.15s ease;
 }
-
-.workout-item:hover {
+.class-card:hover {
   background: var(--pf-surface3);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
 }
 
-.workout-name {
+.class-time {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  min-width: 62px;
+  padding-right: 12px;
+  border-right: 1px solid var(--pf-border);
+}
+.class-time-start {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--pf-text);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.3px;
+}
+.class-time-end {
+  font-size: 10px;
+  color: var(--pf-text3);
+  margin-top: 3px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.2px;
+}
+
+.class-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+}
+.class-name {
   font-size: 13px;
   font-weight: 600;
   color: var(--pf-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.1px;
 }
-
-.workout-time {
-  font-size: 11px;
-  color: var(--pf-text3);
-  margin-top: 2px;
+.class-meta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
 }
-
-.workout-disc {
+.class-disc {
   font-size: 9px;
   font-weight: 700;
   padding: 3px 8px;
   border-radius: 10px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  border: 1px solid transparent;
   flex-shrink: 0;
+}
+.class-location {
+  font-size: 11px;
+  color: var(--pf-text3);
+  letter-spacing: 0.1px;
 }
 
 /* --- Personal Training --- */
