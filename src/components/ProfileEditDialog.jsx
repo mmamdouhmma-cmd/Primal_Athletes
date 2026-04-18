@@ -34,7 +34,7 @@ export default function ProfileEditDialog({ athlete, open, onClose, onSaved }) {
     const file = e.target.files?.[0]
     if (!file) return
     if (!file.type.startsWith('image/')) { setError('Please select an image file.'); return }
-    if (file.size > 5 * 1024 * 1024) { setError('Image must be under 5MB.'); return }
+    if (file.size > 20 * 1024 * 1024) { setError('Image must be under 20MB.'); return }
     setPhotoFile(file)
     setPhotoPreview(URL.createObjectURL(file))
     setError('')
