@@ -155,6 +155,36 @@ html, body {
   text-transform: uppercase;
 }
 
+.brand-logo {
+  height: 32px;
+  width: auto;
+  display: block;
+  object-fit: contain;
+}
+
+/* Keep the top bar white even in dark mode */
+[data-theme="dark"] .topbar {
+  background: #FFFFFF;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+}
+[data-theme="dark"] .topbar .theme-toggle-btn,
+[data-theme="dark"] .topbar .notif-btn {
+  color: #1A1D26;
+}
+[data-theme="dark"] .topbar .theme-toggle-btn:hover,
+[data-theme="dark"] .topbar .notif-btn:hover {
+  background: #F0F1F5;
+}
+[data-theme="dark"] .topbar .notif-btn svg {
+  stroke: #1A1D26;
+}
+[data-theme="dark"] .topbar .brand-text {
+  color: #1A1D26;
+}
+[data-theme="dark"] .topbar .notif-badge {
+  border-color: #FFFFFF;
+}
+
 /* --- Notification Button --- */
 .notif-btn {
   position: relative;

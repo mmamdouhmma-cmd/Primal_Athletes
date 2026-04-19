@@ -191,10 +191,7 @@ export default function Dashboard() {
               <span className="brand-text" style={{ fontSize: 15 }}>Profile</span>
             </>
           ) : (
-            <>
-              <div className="logo-mark">{Icons.logo}</div>
-              <span className="brand-text">Primal</span>
-            </>
+            <img src="/primal-fitness-logo_transparent.png" alt="Primal Fitness" className="brand-logo" />
           )}
         </div>
         <div className="topbar-right">
@@ -206,12 +203,13 @@ export default function Dashboard() {
           ) : (
             <>
               <button
-                className="theme-toggle-btn"
+                className="btn-outline"
+                style={{ padding: '6px 12px', fontSize: 11 }}
                 onClick={() => setShowFeedback(true)}
                 title="Feedback"
                 aria-label="Feedback"
               >
-                {Icons.feedback}
+                Feedback
               </button>
               <NotificationBell athleteId={athlete?.id} />
               <div className="avatar-btn" onClick={goProfile}>{initials}</div>
