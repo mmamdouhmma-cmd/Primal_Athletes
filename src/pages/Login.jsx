@@ -21,14 +21,33 @@ export default function Login() {
 
   async function onCredentials(e) {
     e.preventDefault(); setError(''); setLoading(true)
-    const { data } = await supabase.from('students').select('*')
-      .ilike('name', name.trim()).eq('phone_number', phone.trim()).maybeSingle()
-    if (!data) { setError('No account found. Check your name and phone number.'); setLoading(false); return }
-    const { data: discs } = await supabase.from('disciplines').select('*')
-    data._disciplines = discs || []
-    setMember(data)
-    if (!data.password || !data.date_of_birth) { setStep('setPassword') }
-    else { setStep('password') }
+    const nameNorm = name.toLowerCase().replace(/\s+/g, ' ').trim()
+    const phoneNorm = phone.replace(/\D/g, '').replace(/^(971|0)/, '')
+
+    const { data: matches } = await supabase.from('students').select('*')
+      .eq('name_normalized', nameNorm).eq('phone_normalized', phoneNorm)
+
+    if (matches && matches.length > 0) {
+      const data = matches[0]
+      const { data: discs } = await supabase.from('disciplines').select('*')
+      data._disciplines = discs || []
+      setMember(data)
+      if (!data.password || !data.date_of_birth) { setStep('setPassword') }
+      else { setStep('password') }
+      setLoading(false)
+      return
+    }
+
+    const { data: nameMatches } = await supabase.from('students').select('id, phone_normalized')
+      .eq('name_normalized', nameNorm)
+
+    if (!nameMatches || nameMatches.length === 0) {
+      setError('Your name is not in our system. Please sign up through reception.')
+    } else if (nameMatches.some(m => m.phone_normalized && m.phone_normalized.length > 0)) {
+      setError('Wrong phone number. Please check and try again.')
+    } else {
+      setError('Your phone number is not registered. Please contact reception to add it to your account.')
+    }
     setLoading(false)
   }
 
