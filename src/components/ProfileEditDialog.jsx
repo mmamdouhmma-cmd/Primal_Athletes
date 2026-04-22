@@ -1,9 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { uploadProfilePhoto } from '../lib/photoUpload'
 import { getInitials } from '../lib/helpers'
+import { useLanguage } from '../context/LanguageContext'
 
 export default function ProfileEditDialog({ athlete, open, onClose, onSaved }) {
+  const { t } = useLanguage()
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [dob, setDob] = useState('')
@@ -25,7 +28,7 @@ export default function ProfileEditDialog({ athlete, open, onClose, onSaved }) {
       setPhone(athlete.phone_number || '')
       setDob(athlete.date_of_birth || '')
       setOldPw(''); setNewPw(''); setError(''); setSuccess('')
-      setPhotoPreview(athlete.photo || null)
+      setPhotoPreview(athlete.photo_url || athlete.photo || null)
       setPhotoFile(null)
     }
   }, [open, athlete])
@@ -33,48 +36,44 @@ export default function ProfileEditDialog({ athlete, open, onClose, onSaved }) {
   function onPhotoSelect(e) {
     const file = e.target.files?.[0]
     if (!file) return
-    if (!file.type.startsWith('image/')) { setError('Please select an image file.'); return }
-    if (file.size > 20 * 1024 * 1024) { setError('Image must be under 20MB.'); return }
+    if (!file.type.startsWith('image/')) { setError(t('profileEdit.errSelectImage')); return }
+    // No size cap: resize happens silently in-browser before upload.
     setPhotoFile(file)
     setPhotoPreview(URL.createObjectURL(file))
     setError('')
   }
 
-  async function uploadPhoto() {
-    if (!photoFile) return athlete?.photo || null
-    setUploadingPhoto(true)
-    const ext = photoFile.name.split('.').pop()
-    const path = `avatars/${athlete.id}.${ext}`
-    const { error: upErr } = await supabase.storage.from('avatars').upload(path, photoFile, { upsert: true })
-    if (upErr) {
-      setError('Photo upload failed: ' + upErr.message)
-      setUploadingPhoto(false)
-      return null
-    }
-    const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path)
-    setUploadingPhoto(false)
-    return urlData?.publicUrl ? urlData.publicUrl + '?t=' + Date.now() : null
-  }
-
   async function save(e) {
     e.preventDefault(); setError(''); setSuccess('')
-    if (newPw && oldPw !== athlete.password) { setError('Current password is incorrect.'); return }
-    if (newPw && newPw.length < 4) { setError('New password must be at least 4 characters.'); return }
+    if (newPw && oldPw !== athlete.password) { setError(t('profileEdit.errCurrentPassword')); return }
+    if (newPw && newPw.length < 4) { setError(t('profileEdit.errPasswordTooShort')); return }
     setSaving(true)
 
     const updates = { email, phone_number: phone }
     if (dob) updates.date_of_birth = dob
     if (newPw) updates.password = newPw
 
+    // Upload new photo first — if Storage is down we fail before touching the row.
+    // On success: write URL to photo_url and null the legacy photo column
+    // (user explicitly chose to replace, so old data is safe to drop).
     if (photoFile) {
-      const photoUrl = await uploadPhoto()
-      if (photoUrl === null && photoFile) { setSaving(false); return }
-      if (photoUrl) updates.photo = photoUrl
+      setUploadingPhoto(true)
+      try {
+        const photoUrl = await uploadProfilePhoto(photoFile, { kind: 'students', id: athlete.id })
+        updates.photo_url = photoUrl
+        updates.photo = null
+      } catch (uploadErr) {
+        setError(t('profileEdit.errPhotoUpload') + uploadErr.message)
+        setUploadingPhoto(false)
+        setSaving(false)
+        return
+      }
+      setUploadingPhoto(false)
     }
 
     const { error: err } = await supabase.from('students').update(updates).eq('id', athlete.id)
-    if (err) { setError('Failed to save. Try again.'); setSaving(false); return }
-    setSuccess('Profile updated!')
+    if (err) { setError(t('profileEdit.saveError')); setSaving(false); return }
+    setSuccess(t('profileEdit.successUpdated'))
     setSaving(false)
     setTimeout(() => { onSaved?.(); onClose() }, 800)
   }
@@ -90,7 +89,7 @@ export default function ProfileEditDialog({ athlete, open, onClose, onSaved }) {
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
         </button>
 
-        <div className="modal-title">Edit Profile</div>
+        <div className="modal-title">{t('profileEdit.title')}</div>
 
         <form onSubmit={save}>
           {/* Photo Upload */}
@@ -120,33 +119,33 @@ export default function ProfileEditDialog({ athlete, open, onClose, onSaved }) {
               />
             </div>
             <div style={{ fontSize: 11, color: 'var(--pf-text3)', marginTop: 6 }}>
-              Tap to change photo
+              {t('profileEdit.tapToChangePhoto')}
             </div>
           </div>
 
           <div className="form-group">
-            <label className="form-label">Email</label>
-            <input className="form-input" type="email" placeholder="your@email.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <label className="form-label">{t('profileEdit.email')}</label>
+            <input className="form-input" type="email" placeholder={t('profileEdit.emailPlaceholder')} value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
           <div className="form-group">
-            <label className="form-label">Phone number</label>
+            <label className="form-label">{t('profileEdit.phone')}</label>
             <input className="form-input" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
           </div>
           <div className="form-group">
-            <label className="form-label">Date of birth</label>
+            <label className="form-label">{t('profileEdit.dob')}</label>
             <input className="form-input" type="date" value={dob} onChange={(e) => setDob(e.target.value)} />
           </div>
 
           {/* Password section */}
           <div style={{ borderTop: '1px solid var(--pf-border)', paddingTop: 14, marginTop: 6, marginBottom: 14 }}>
-            <span className="form-label" style={{ marginBottom: 12, display: 'block' }}>Change password</span>
+            <span className="form-label" style={{ marginBottom: 12, display: 'block' }}>{t('profileEdit.changePassword')}</span>
             <div className="form-group">
-              <label className="form-label">Current password</label>
+              <label className="form-label">{t('profileEdit.currentPassword')}</label>
               <div style={{ position: 'relative' }}>
                 <input
                   className="form-input"
                   type={showOld ? 'text' : 'password'}
-                  placeholder="Current password"
+                  placeholder={t('profileEdit.currentPassword')}
                   value={oldPw}
                   onChange={(e) => setOldPw(e.target.value)}
                 />
@@ -156,12 +155,12 @@ export default function ProfileEditDialog({ athlete, open, onClose, onSaved }) {
               </div>
             </div>
             <div className="form-group">
-              <label className="form-label">New password</label>
+              <label className="form-label">{t('profileEdit.newPassword')}</label>
               <div style={{ position: 'relative' }}>
                 <input
                   className="form-input"
                   type={showNew ? 'text' : 'password'}
-                  placeholder="New password"
+                  placeholder={t('profileEdit.newPassword')}
                   value={newPw}
                   onChange={(e) => setNewPw(e.target.value)}
                 />
@@ -176,9 +175,9 @@ export default function ProfileEditDialog({ athlete, open, onClose, onSaved }) {
           {success && <div className="alert-success">{success}</div>}
 
           <div style={{ display: 'flex', gap: 12, paddingTop: 4 }}>
-            <button type="button" className="btn-outline" onClick={onClose} style={{ flex: 1, width: 'auto' }}>Cancel</button>
+            <button type="button" className="btn-outline" onClick={onClose} style={{ flex: 1, width: 'auto' }}>{t('profileEdit.cancel')}</button>
             <button type="submit" className="btn-primary" disabled={saving || uploadingPhoto} style={{ flex: 1 }}>
-              {saving || uploadingPhoto ? 'Saving...' : 'Save'}
+              {saving || uploadingPhoto ? t('profileEdit.saving') : t('profileEdit.save')}
             </button>
           </div>
         </form>

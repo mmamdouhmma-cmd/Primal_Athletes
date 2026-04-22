@@ -7,6 +7,8 @@ import PTBookingDialog from '../components/PTBookingDialog'
 import CoachProfileDialog from '../components/CoachProfileDialog'
 import ProfileEditDialog from '../components/ProfileEditDialog'
 import FeedbackDialog from '../components/FeedbackDialog'
+import LanguageSwitcher from '../components/LanguageSwitcher'
+import { useLanguage } from '../context/LanguageContext'
 
 /* ── SVG Icons ── */
 const Icons = {
@@ -44,6 +46,7 @@ function formatLevel(row, disc) {
 
 export default function Dashboard() {
   const { athlete, logout, refreshAthlete } = useAuth()
+  const { t } = useLanguage()
   const [tab, setTab] = useState('overview')
   const [nav, setNav] = useState('home')
   const [screen, setScreen] = useState('dashboard') // dashboard | profile
@@ -170,12 +173,12 @@ export default function Dashboard() {
   const daysLeft10 = is10Day ? Math.max(0, 10 - daysUsed10) : 0
 
   const TABS = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'attendance', label: 'Attendance' },
-    { id: 'progress', label: 'Progress' },
-    { id: 'workouts', label: 'Workouts' },
-    { id: 'pt', label: 'Personal training' },
-    { id: 'coaches', label: 'Coaches' },
+    { id: 'overview', label: t('tabs.overview') },
+    { id: 'attendance', label: t('tabs.attendance') },
+    { id: 'progress', label: t('tabs.progress') },
+    { id: 'workouts', label: t('tabs.workouts') },
+    { id: 'pt', label: t('tabs.pt') },
+    { id: 'coaches', label: t('tabs.coaches') },
   ]
 
   return (
@@ -188,28 +191,29 @@ export default function Dashboard() {
               <button style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }} onClick={goBack}>
                 {Icons.back}
               </button>
-              <span className="brand-text" style={{ fontSize: 15 }}>Profile</span>
+              <span className="brand-text" style={{ fontSize: 15 }}>{t('common.profile')}</span>
             </>
           ) : (
             <img src="/primal-fitness-logo_transparent.png" alt="Primal Fitness" className="brand-logo" />
           )}
         </div>
         <div className="topbar-right">
-          <button className="theme-toggle-btn" onClick={switchTheme} title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}>
+          <LanguageSwitcher />
+          <button className="theme-toggle-btn" onClick={switchTheme} title={isDark ? t('common.switchToLight') : t('common.switchToDark')}>
             {isDark ? Icons.sun : Icons.moon}
           </button>
           {screen === 'profile' ? (
-            <button className="btn-outline" style={{ padding: '6px 14px', fontSize: 11 }} onClick={() => setShowProfileEdit(true)}>Edit</button>
+            <button className="btn-outline" style={{ padding: '6px 14px', fontSize: 11 }} onClick={() => setShowProfileEdit(true)}>{t('common.edit')}</button>
           ) : (
             <>
               <button
                 className="btn-outline"
                 style={{ padding: '6px 12px', fontSize: 11 }}
                 onClick={() => setShowFeedback(true)}
-                title="Feedback"
-                aria-label="Feedback"
+                title={t('common.feedback')}
+                aria-label={t('common.feedback')}
               >
-                Feedback
+                {t('common.feedback')}
               </button>
               <NotificationBell athleteId={athlete?.id} />
               <div className="avatar-btn" onClick={goProfile}>{initials}</div>
@@ -224,7 +228,7 @@ export default function Dashboard() {
           {loading ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '64px 0', color: 'var(--pf-text3)', fontSize: 13 }}>
               <div className="spinner" />
-              Loading...
+              {t('common.loading')}
             </div>
           ) : screen === 'profile' ? (
             <ProfileScreen
@@ -244,7 +248,7 @@ export default function Dashboard() {
               {/* Profile Header */}
               <div className="profile-header">
                 <div className="profile-avatar">
-                  {athlete?.photo ? <img src={athlete.photo} alt="" /> : initials}
+                  {(athlete?.photo_url || athlete?.photo) ? <img src={athlete.photo_url || athlete.photo} alt="" /> : initials}
                 </div>
                 <div className="profile-info">
                   <h2>{athlete?.name}</h2>
@@ -298,10 +302,10 @@ export default function Dashboard() {
       {/* ── Bottom Navigation ── */}
       <div className="bottom-nav">
         {[
-          { id: 'home', icon: Icons.home, label: 'Home' },
-          { id: 'workouts', icon: Icons.schedule, label: 'Schedule' },
-          { id: 'progress', icon: Icons.progress, label: 'Progress' },
-          { id: 'profile', icon: Icons.profile, label: 'Profile' },
+          { id: 'home', icon: Icons.home, label: t('nav.home') },
+          { id: 'workouts', icon: Icons.schedule, label: t('nav.schedule') },
+          { id: 'progress', icon: Icons.progress, label: t('nav.progress') },
+          { id: 'profile', icon: Icons.profile, label: t('nav.profile') },
         ].map((item) => {
           const active = item.id === 'profile' ? screen === 'profile' : nav === item.id && screen === 'dashboard'
           return (
@@ -331,9 +335,10 @@ export default function Dashboard() {
    ════════════════════════════════════════════════════════ */
 
 function StatusBadge({ isExpired, isExpiring }) {
-  if (isExpired) return <span className="badge badge-expired">Expired</span>
-  if (isExpiring) return <span className="badge badge-expiring">Expiring</span>
-  return <span className="badge badge-active">Active</span>
+  const { t } = useLanguage()
+  if (isExpired) return <span className="badge badge-expired">{t('status.expired')}</span>
+  if (isExpiring) return <span className="badge badge-expiring">{t('status.expiring')}</span>
+  return <span className="badge badge-active">{t('status.active')}</span>
 }
 
 function DiscBadge({ disc }) {
@@ -346,16 +351,17 @@ function DiscBadge({ disc }) {
 }
 
 function DisciplineLevelsCard({ discNames, levelsByDiscId }) {
+  const { t } = useLanguage()
   return (
     <div className="card">
       <div className="card-header">
-        <span className="card-title">Your levels</span>
-        <span style={{ fontSize: 10, color: 'var(--pf-text3)' }}>By discipline</span>
+        <span className="card-title">{t('overview.yourLevels')}</span>
+        <span style={{ fontSize: 10, color: 'var(--pf-text3)' }}>{t('overview.byDiscipline')}</span>
       </div>
       <div className="card-body">
         {discNames.map((d) => {
           const row = levelsByDiscId?.[d.id]
-          const label = formatLevel(row, d) || 'Not rated yet'
+          const label = formatLevel(row, d) || t('common.notRatedYet')
           const c = d.color || '#64748B'
           return (
             <div key={d.id} className="detail-row">
@@ -386,32 +392,33 @@ function Empty({ text }) {
    OVERVIEW TAB
    ════════════════════════════════════════════════════════ */
 function OverviewTab({ athlete, daysLeft, is10Day, daysUsed10, attRate, thisMonthAtt, discNames, disciplines, attendance, levelsByDiscId }) {
+  const { t } = useLanguage()
   const ratedDiscs = discNames.filter((d) => !/gym access/i.test(d.name || ''))
   return (
     <>
       {/* Stats Grid */}
       <div className="stats-grid">
         <div className="stat-card blue">
-          <div className="stat-label">Days remaining</div>
+          <div className="stat-label">{t('overview.daysRemaining')}</div>
           <div className="stat-value">{daysLeft}</div>
-          <div className="stat-sub">{athlete?.membership_expiration_date ? `Expires ${formatDate(athlete.membership_expiration_date)}` : 'No membership'}</div>
+          <div className="stat-sub">{athlete?.membership_expiration_date ? t('overview.expiresOn', { date: formatDate(athlete.membership_expiration_date) }) : t('common.noMembership')}</div>
         </div>
         <div className="stat-card green">
-          <div className="stat-label">Attendance rate</div>
+          <div className="stat-label">{t('overview.attendanceRate')}</div>
           <div className="stat-value">{attRate}%</div>
-          <div className="stat-sub">This month</div>
+          <div className="stat-sub">{t('overview.thisMonth')}</div>
         </div>
         <div className="stat-card amber">
-          <div className="stat-label">{is10Day ? '10-day pass' : 'Check-ins'}</div>
+          <div className="stat-label">{is10Day ? t('overview.tenDayPass') : t('overview.checkIns')}</div>
           <div className="stat-value">{is10Day ? `${daysUsed10}/10` : thisMonthAtt.length}</div>
-          <div className="stat-sub">{is10Day ? `${10 - daysUsed10} sessions left` : 'This month'}</div>
+          <div className="stat-sub">{is10Day ? `${10 - daysUsed10} ${t('overview.sessionsLeft')}` : t('overview.thisMonth')}</div>
         </div>
         <div className="stat-card purple">
-          <div className="stat-label">Disciplines</div>
+          <div className="stat-label">{t('overview.disciplines')}</div>
           <div className="stat-value" style={discNames.length > 2 ? { fontSize: 16 } : {}}>
             {discNames.length > 0 ? discNames.map((d) => d.name).join(', ') : '-'}
           </div>
-          <div className="stat-sub">{`${discNames.length} enrolled`}</div>
+          <div className="stat-sub">{t('overview.enrolled', { count: discNames.length })}</div>
         </div>
       </div>
 
@@ -423,25 +430,25 @@ function OverviewTab({ athlete, daysLeft, is10Day, daysUsed10, attRate, thisMont
       {/* Member Details */}
       <div className="card">
         <div className="card-header">
-          <span className="card-title">Member details</span>
+          <span className="card-title">{t('overview.memberDetails')}</span>
           <span style={{ fontSize: 10, color: 'var(--pf-text3)' }}>{athlete?.category || 'Adults'}</span>
         </div>
         <div className="card-body">
-          <div className="detail-row"><span className="detail-key">Member since</span><span className="detail-val">{formatDate(athlete?.membership_date || athlete?.created_at)}</span></div>
-          <div className="detail-row"><span className="detail-key">Expiration</span><span className="detail-val">{formatDate(athlete?.membership_expiration_date)}</span></div>
-          <div className="detail-row"><span className="detail-key">Phone</span><span className="detail-val">{athlete?.phone_number || '-'}</span></div>
-          <div className="detail-row"><span className="detail-key">Email</span><span className="detail-val link">{athlete?.email || '-'}</span></div>
+          <div className="detail-row"><span className="detail-key">{t('overview.memberSince')}</span><span className="detail-val">{formatDate(athlete?.membership_date || athlete?.created_at)}</span></div>
+          <div className="detail-row"><span className="detail-key">{t('overview.expiration')}</span><span className="detail-val">{formatDate(athlete?.membership_expiration_date)}</span></div>
+          <div className="detail-row"><span className="detail-key">{t('overview.phone')}</span><span className="detail-val">{athlete?.phone_number || '-'}</span></div>
+          <div className="detail-row"><span className="detail-key">{t('overview.email')}</span><span className="detail-val link">{athlete?.email || '-'}</span></div>
         </div>
       </div>
 
       {/* Recent Attendance */}
       <div className="card">
         <div className="card-header">
-          <span className="card-title">Recent attendance</span>
-          <span style={{ fontSize: 10, color: 'var(--pf-text3)' }}>Last 10</span>
+          <span className="card-title">{t('overview.recentAttendance')}</span>
+          <span style={{ fontSize: 10, color: 'var(--pf-text3)' }}>{t('overview.last10')}</span>
         </div>
         <div className="card-body">
-          {attendance.length === 0 ? <Empty text="No attendance records yet." /> : (
+          {attendance.length === 0 ? <Empty text={t('overview.noAttendance')} /> : (
             attendance.slice(0, 10).map((a, i) => (
               <div key={a.id || i} className="attendance-row">
                 <div>
@@ -452,7 +459,7 @@ function OverviewTab({ athlete, daysLeft, is10Day, daysUsed10, attRate, thisMont
                   </div>
                 </div>
                 <span className={`att-status ${a.present ? 'att-present' : 'att-absent'}`}>
-                  {a.present ? 'Present' : 'Absent'}
+                  {a.present ? t('status.present') : t('status.absent')}
                 </span>
               </div>
             ))
@@ -467,6 +474,7 @@ function OverviewTab({ athlete, daysLeft, is10Day, daysUsed10, attRate, thisMont
    ATTENDANCE TAB
    ════════════════════════════════════════════════════════ */
 function AttendanceTab({ attendance, disciplines, discNames }) {
+  const { t } = useLanguage()
   const present = attendance.filter((a) => a.present)
 
   // Group present attendance by discipline_id
@@ -486,7 +494,7 @@ function AttendanceTab({ attendance, disciplines, discNames }) {
   Object.keys(counts).forEach((id) => {
     if (seen.has(id)) return
     const d = disciplines.find((x) => x.id === id)
-    rows.push({ id, name: d?.name || 'Other', color: d?.color || '#64748B', count: counts[id] })
+    rows.push({ id, name: d?.name || t('days.other'), color: d?.color || '#64748B', count: counts[id] })
   })
 
   const total = present.length
@@ -496,24 +504,24 @@ function AttendanceTab({ attendance, disciplines, discNames }) {
     <>
       <div className="stats-grid">
         <div className="stat-card blue">
-          <div className="stat-label">Total classes attended</div>
+          <div className="stat-label">{t('attendance.totalClasses')}</div>
           <div className="stat-value">{total}</div>
-          <div className="stat-sub">All time</div>
+          <div className="stat-sub">{t('attendance.allTime')}</div>
         </div>
         <div className="stat-card green">
-          <div className="stat-label">Disciplines</div>
+          <div className="stat-label">{t('attendance.disciplinesCount')}</div>
           <div className="stat-value">{rows.filter((r) => r.count > 0).length}</div>
-          <div className="stat-sub">With attendance</div>
+          <div className="stat-sub">{t('attendance.withAttendance')}</div>
         </div>
       </div>
 
       <div className="card">
         <div className="card-header">
-          <span className="card-title">Classes attended by discipline</span>
+          <span className="card-title">{t('attendance.classesByDiscipline')}</span>
         </div>
         <div className="card-body">
           {rows.length === 0 ? (
-            <Empty text="No attendance records yet." />
+            <Empty text={t('overview.noAttendance')} />
           ) : (
             rows.map((r) => (
               <div key={r.id} className="progress-item">
@@ -533,7 +541,7 @@ function AttendanceTab({ attendance, disciplines, discNames }) {
                     {r.name}
                   </span>
                   <span className="progress-val">
-                    {r.count} class{r.count !== 1 ? 'es' : ''}
+                    {r.count} {r.count !== 1 ? t('attendance.classes') : t('attendance.class')}
                   </span>
                 </div>
                 <div className="progress-bar">
@@ -550,12 +558,12 @@ function AttendanceTab({ attendance, disciplines, discNames }) {
 
       <div className="card">
         <div className="card-header">
-          <span className="card-title">Recent classes</span>
-          <span style={{ fontSize: 10, color: 'var(--pf-text3)' }}>Last 15</span>
+          <span className="card-title">{t('attendance.recentClasses')}</span>
+          <span style={{ fontSize: 10, color: 'var(--pf-text3)' }}>{t('attendance.last15')}</span>
         </div>
         <div className="card-body">
           {present.length === 0 ? (
-            <Empty text="No classes attended yet." />
+            <Empty text={t('attendance.noneYet')} />
           ) : (
             present.slice(0, 15).map((a, i) => {
               const disc = disciplines.find((d) => d.id === a.discipline_id)
@@ -591,7 +599,8 @@ function AttendanceTab({ attendance, disciplines, discNames }) {
    PROGRESS TAB
    ════════════════════════════════════════════════════════ */
 function ProgressTab({ progress, disciplines, onViewCoach }) {
-  if (!progress.length) return <Empty text="No progress evaluations yet. Your coach will update your progress here." />
+  const { t } = useLanguage()
+  if (!progress.length) return <Empty text={t('progress.noEvaluations')} />
 
   // Group progress entries by discipline
   const byDiscipline = {}
@@ -605,7 +614,7 @@ function ProgressTab({ progress, disciplines, onViewCoach }) {
     <>
       {Object.entries(byDiscipline).map(([discId, entries]) => {
         const disc = disciplines.find((d) => d.id === discId)
-        const discLabel = disc?.name || 'General'
+        const discLabel = disc?.name || t('progress.general')
         const discColor = disc?.color || '#64748B'
 
         return (
@@ -616,7 +625,7 @@ function ProgressTab({ progress, disciplines, onViewCoach }) {
                 display: 'inline-block', padding: '2px 10px', borderRadius: 6,
                 fontSize: 12, fontWeight: 700, background: discColor + '20', color: discColor,
               }}>{discLabel}</span>
-              <span style={{ fontSize: 11, color: 'var(--pf-text3)' }}>{entries.length} evaluation{entries.length !== 1 ? 's' : ''}</span>
+              <span style={{ fontSize: 11, color: 'var(--pf-text3)' }}>{entries.length} {entries.length !== 1 ? t('progress.evaluations') : t('progress.evaluation')}</span>
             </div>
 
             {entries.map((r) => {
@@ -627,7 +636,7 @@ function ProgressTab({ progress, disciplines, onViewCoach }) {
               const behavioralKeys = ['composure', 'listening', 'focus', 'understanding', 'behavior']
               const tech = allEntries.filter(([k]) => !behavioralKeys.includes(k))
               const behavioral = allEntries.filter(([k]) => behavioralKeys.includes(k))
-              const coachName = r.coaches?.name || 'Coach'
+              const coachName = r.coaches?.name || t('coaches.coachLabel')
               const coachId = r.coaches?.id
 
               return (
@@ -635,7 +644,7 @@ function ProgressTab({ progress, disciplines, onViewCoach }) {
                   {tech.length > 0 && (
                     <div className="card">
                       <div className="card-header">
-                        <span className="card-title">Technical skills</span>
+                        <span className="card-title">{t('progress.technicalSkills')}</span>
                         <span style={{ fontSize: 10, color: 'var(--pf-text3)' }}>{formatDate(r.evaluated_at)}</span>
                       </div>
                       <div className="card-body">
@@ -666,7 +675,7 @@ function ProgressTab({ progress, disciplines, onViewCoach }) {
                   {behavioral.length > 0 && (
                     <div className="card">
                       <div className="card-header">
-                        <span className="card-title">Behavioral skills</span>
+                        <span className="card-title">{t('progress.behavioralSkills')}</span>
                         <span style={{ fontSize: 10, color: 'var(--pf-text3)' }}>{formatDate(r.evaluated_at)}</span>
                       </div>
                       <div className="card-body">
@@ -733,14 +742,18 @@ function formatTime12(hms) {
   return `${h}:${m.slice(0, 2)} ${ampm}`
 }
 
-const CLASS_CATEGORIES = [
-  { id: 'martial_arts_kids', label: 'Martial arts kids' },
-  { id: 'martial_arts_adults', label: 'Martial arts adults' },
-  { id: 'fitness_kids', label: 'Fitness kids' },
-  { id: 'fitness_adults', label: 'Fitness adults' },
-]
-
 function WorkoutsTab({ athlete, disciplines }) {
+  const { t } = useLanguage()
+  const CLASS_CATEGORIES = [
+    { id: 'martial_arts_kids', label: t('workouts.martialKids') },
+    { id: 'martial_arts_adults', label: t('workouts.martialAdults') },
+    { id: 'fitness_kids', label: t('workouts.fitnessKids') },
+    { id: 'fitness_adults', label: t('workouts.fitnessAdults') },
+  ]
+  const DAY_KEY_MAP = {
+    Monday: 'monday', Tuesday: 'tuesday', Wednesday: 'wednesday', Thursday: 'thursday',
+    Friday: 'friday', Saturday: 'saturday', Sunday: 'sunday',
+  }
   const [schedule, setSchedule] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
@@ -786,11 +799,11 @@ function WorkoutsTab({ athlete, disciplines }) {
 
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '40px 0', color: 'var(--pf-text3)', fontSize: 13 }}>
-      <div className="spinner" /> Loading schedule...
+      <div className="spinner" /> {t('workouts.loadingSchedule')}
     </div>
   )
 
-  if (!schedule.length) return <Empty text="No class schedule available yet." />
+  if (!schedule.length) return <Empty text={t('workouts.noSchedule')} />
 
   return (
     <>
@@ -799,7 +812,7 @@ function WorkoutsTab({ athlete, disciplines }) {
           className={`filter-chip ${filter === 'all' ? 'active' : ''}`}
           onClick={() => setFilter('all')}
         >
-          All classes
+          {t('workouts.allClasses')}
         </button>
         {CLASS_CATEGORIES.map((cat) => (
           <button
@@ -813,17 +826,18 @@ function WorkoutsTab({ athlete, disciplines }) {
       </div>
 
       {daysToShow.length === 0 ? (
-        <Empty text="No classes match this filter." />
+        <Empty text={t('workouts.noMatchingFilter')} />
       ) : (
         daysToShow.map((day) => {
           const isToday = day === todayName
+          const dayLabel = DAY_KEY_MAP[day] ? t('days.' + DAY_KEY_MAP[day]) : day
           return (
             <div key={day} className="schedule-day">
               <div className={`day-header${isToday ? ' is-today' : ''}`}>
-                <span className="day-name">{day}</span>
-                {isToday && <span className="today-pill">Today</span>}
+                <span className="day-name">{dayLabel}</span>
+                {isToday && <span className="today-pill">{t('workouts.today')}</span>}
                 <span className="day-count">
-                  {byDay[day].length} class{byDay[day].length !== 1 ? 'es' : ''}
+                  {byDay[day].length} {byDay[day].length !== 1 ? t('workouts.classes') : t('workouts.class')}
                 </span>
               </div>
               <div className="class-list">
@@ -849,7 +863,7 @@ function WorkoutsTab({ athlete, disciplines }) {
                           )}
                           {c.coach && <span className="class-location">· {c.coach}</span>}
                           {c.location && <span className="class-location">· {c.location}</span>}
-                          {c.capacity && <span className="class-location">· {c.capacity} spots</span>}
+                          {c.capacity && <span className="class-location">· {c.capacity} {t('workouts.spots')}</span>}
                         </div>
                       </div>
                     </div>
@@ -868,27 +882,29 @@ function WorkoutsTab({ athlete, disciplines }) {
    PT TAB
    ════════════════════════════════════════════════════════ */
 function PTTab({ ptBalance, ptBookings, ptCoach, ptCoachId, athlete, onBook, onCancelled, onViewCoach }) {
+  const { t } = useLanguage()
   const [cancelling, setCancelling] = useState(null)
 
   const statusMap = {
-    pending: { cls: 'status-pending', label: 'Pending' },
-    scheduled: { cls: 'status-scheduled', label: 'Approved' },
-    completed: { cls: 'status-completed', label: 'Completed' },
-    cancelled: { cls: 'status-cancelled', label: 'Cancelled' },
-    declined: { cls: 'status-declined', label: 'Declined' },
-    no_show: { cls: 'status-noshow', label: 'No Show' },
+    pending: { cls: 'status-pending', label: t('pt.statusPending') },
+    scheduled: { cls: 'status-scheduled', label: t('pt.statusApproved') },
+    completed: { cls: 'status-completed', label: t('pt.statusCompleted') },
+    cancelled: { cls: 'status-cancelled', label: t('pt.statusCancelled') },
+    declined: { cls: 'status-declined', label: t('pt.statusDeclined') },
+    no_show: { cls: 'status-noshow', label: t('pt.statusNoShow') },
   }
 
   async function cancelBooking(booking) {
-    if (!confirm('Are you sure you want to cancel this session?')) return
+    if (!confirm(t('pt.confirmCancel'))) return
     setCancelling(booking.id)
     const { error } = await supabase.from('personal_training_bookings')
       .update({ status: 'cancelled' }).eq('id', booking.id)
-    if (error) { alert('Error: ' + error.message); setCancelling(null); return }
+    if (error) { alert(t('pt.errorPrefix') + error.message); setCancelling(null); return }
     if (booking.coach_id) {
       await supabase.from('notifications').insert({
         recipient_type: 'coach', recipient_id: booking.coach_id, notification_type: 'pt_cancellation',
-        title: 'PT Session Cancelled', message: `${athlete.name} cancelled their session on ${booking.booking_date} at ${booking.booking_time}`,
+        title: t('pt.cancelNotifTitle'),
+        message: t('pt.cancelNotifMessage', { name: athlete.name, date: booking.booking_date, time: booking.booking_time }),
         related_entity_type: 'student', related_entity_id: athlete.id, branch_id: athlete.branch_id,
       })
     }
@@ -901,10 +917,10 @@ function PTTab({ ptBalance, ptBookings, ptCoach, ptCoachId, athlete, onBook, onC
       <div className="pt-balance">
         <div className="pt-count">{ptBalance}</div>
         <div>
-          <div className="pt-label">PT sessions remaining</div>
+          <div className="pt-label">{t('pt.sessionsRemaining')}</div>
           {ptCoach && (
             <div className="pt-sublabel">
-              Assigned coach:{' '}
+              {t('pt.assignedCoach')}{' '}
               {onViewCoach ? (
                 <span className="coach-link" onClick={onViewCoach}>{ptCoach}</span>
               ) : ptCoach}
@@ -913,19 +929,19 @@ function PTTab({ ptBalance, ptBookings, ptCoach, ptCoachId, athlete, onBook, onC
         </div>
       </div>
 
-      <button className="btn-primary" onClick={onBook} style={{ marginBottom: 14 }}>Book a session</button>
+      <button className="btn-primary" onClick={onBook} style={{ marginBottom: 14 }}>{t('pt.bookSession')}</button>
 
       <div className="card">
-        <div className="card-header"><span className="card-title">Upcoming & past sessions</span></div>
+        <div className="card-header"><span className="card-title">{t('pt.upcomingPast')}</span></div>
         <div className="card-body">
-          {ptBookings.length === 0 ? <Empty text="No PT sessions booked yet." /> : (
+          {ptBookings.length === 0 ? <Empty text={t('pt.noBookings')} /> : (
             ptBookings.map((b) => {
               const s = statusMap[b.status] || statusMap.cancelled
               const canCancel = b.status === 'pending' || b.status === 'scheduled'
               return (
                 <div key={b.id} className="booking-item">
                   <div className="booking-top">
-                    <span className={`booking-coach${onViewCoach ? ' coach-link' : ''}`} onClick={onViewCoach}>{ptCoach || 'Coach'}</span>
+                    <span className={`booking-coach${onViewCoach ? ' coach-link' : ''}`} onClick={onViewCoach}>{ptCoach || t('coaches.coachLabel')}</span>
                     <span className={`booking-status ${s.cls}`}>{s.label}</span>
                   </div>
                   <div className="booking-detail">
@@ -938,7 +954,7 @@ function PTTab({ ptBalance, ptBookings, ptCoach, ptCoachId, athlete, onBook, onC
                       onClick={() => cancelBooking(b)}
                       disabled={cancelling === b.id}
                     >
-                      {cancelling === b.id ? 'Cancelling...' : 'Cancel session'}
+                      {cancelling === b.id ? t('pt.cancelling') : t('pt.cancelSession')}
                     </button>
                   )}
                 </div>
@@ -948,7 +964,7 @@ function PTTab({ ptBalance, ptBookings, ptCoach, ptCoachId, athlete, onBook, onC
         </div>
       </div>
 
-      <button className="btn-outline" style={{ width: '100%', marginTop: 4 }}>Purchase more sessions</button>
+      <button className="btn-outline" style={{ width: '100%', marginTop: 4 }}>{t('pt.purchaseMore')}</button>
     </>
   )
 }
@@ -957,15 +973,23 @@ function PTTab({ ptBalance, ptBookings, ptCoach, ptCoachId, athlete, onBook, onC
    COACHES TAB
    ════════════════════════════════════════════════════════ */
 function CoachesTab({ ptCoachId, branchId, onViewCoach }) {
+  const { t } = useLanguage()
   const [coaches, setCoaches] = useState([])
   const [loading, setLoading] = useState(true)
+
+  const roleLabel = (role) => {
+    const r = (role || 'coach').replace(/-/g, ' ')
+    if (r === 'head coach') return t('coaches.roleHeadCoach')
+    if (r === 'assistant coach') return t('coaches.roleAssistantCoach')
+    return t('coaches.roleCoach')
+  }
 
   useEffect(() => {
     ;(async () => {
       setLoading(true)
       const coachRoles = ['coach', 'assistant-coach', 'head-coach']
       const { data } = await supabase.from('coaches')
-        .select('id, name, role, credentials, photo')
+        .select('id, name, role, credentials, photo_url')
         .in('role', coachRoles)
         .order('name')
       setCoaches(data || [])
@@ -975,25 +999,25 @@ function CoachesTab({ ptCoachId, branchId, onViewCoach }) {
 
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '40px 0', color: 'var(--pf-text3)', fontSize: 13 }}>
-      <div className="spinner" /> Loading...
+      <div className="spinner" /> {t('common.loading')}
     </div>
   )
 
-  if (!coaches.length) return <Empty text="No coaches found." />
+  if (!coaches.length) return <Empty text={t('coaches.noCoaches')} />
 
   return (
     <div className="coach-grid">
       {coaches.map((c) => (
         <div key={c.id} className="coach-card" onClick={() => onViewCoach(c.id)}>
           <div className="coach-card-avatar">
-            {c.photo ? <img src={c.photo} alt="" /> : c.name?.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
+            {c.photo_url ? <img src={c.photo_url} alt="" /> : c.name?.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
           </div>
           <div className="coach-card-info">
             <div className="coach-card-name">
               {c.name}
-              {c.id === ptCoachId && <span className="badge badge-active" style={{ fontSize: 9 }}>Your coach</span>}
+              {c.id === ptCoachId && <span className="badge badge-active" style={{ fontSize: 9 }}>{t('coaches.yourCoach')}</span>}
             </div>
-            <div className="coach-card-role">{(c.role || 'coach').replace(/-/g, ' ')}</div>
+            <div className="coach-card-role">{roleLabel(c.role)}</div>
             {c.credentials && <div className="coach-card-credentials">{c.credentials}</div>}
           </div>
         </div>
@@ -1006,13 +1030,14 @@ function CoachesTab({ ptCoachId, branchId, onViewCoach }) {
    PROFILE SCREEN
    ════════════════════════════════════════════════════════ */
 function ProfileScreen({ athlete, disciplines, levelsByDiscId, initials, isExpired, isExpiring, daysLeft, switchTheme, isDarkTheme, logout }) {
+  const { t } = useLanguage()
   const ratedDiscs = (disciplines || []).filter((d) => !/gym access/i.test(d.name || ''))
   return (
     <>
       {/* Profile Top */}
       <div style={{ textAlign: 'center', padding: '20px 16px 0' }}>
         <div className="profile-avatar large" style={{ margin: '0 auto 10px' }}>
-          {athlete?.photo ? <img src={athlete.photo} alt="" /> : initials}
+          {(athlete?.photo_url || athlete?.photo) ? <img src={athlete.photo_url || athlete.photo} alt="" /> : initials}
         </div>
         <h2 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 19, color: 'var(--pf-text)' }}>{athlete?.name}</h2>
         <div className="profile-meta" style={{ justifyContent: 'center', marginTop: 6 }}>
@@ -1024,14 +1049,14 @@ function ProfileScreen({ athlete, disciplines, levelsByDiscId, initials, isExpir
       <div style={{ padding: '14px 16px 20px' }}>
         {/* Membership Card */}
         <div className="membership-card">
-          <div className="membership-type">Membership</div>
+          <div className="membership-type">{t('profileScreen.membership')}</div>
           <div className="membership-name">
-            {disciplines.map((d) => d.name).join(' + ') || 'No active plan'}
+            {disciplines.map((d) => d.name).join(' + ') || t('common.noActivePlan')}
           </div>
           <div className="membership-exp">
             {athlete?.membership_expiration_date
-              ? `Expires ${formatDate(athlete.membership_expiration_date)} · ${Math.max(0, daysLeft)} days left`
-              : 'No expiration date'}
+              ? `${t('profileScreen.expiresOn', { date: formatDate(athlete.membership_expiration_date) })} · ${t('profileScreen.daysLeft', { n: Math.max(0, daysLeft) })}`
+              : t('common.noExpirationDate')}
           </div>
         </div>
 
@@ -1042,29 +1067,29 @@ function ProfileScreen({ athlete, disciplines, levelsByDiscId, initials, isExpir
 
         {/* Personal Info */}
         <div className="card">
-          <div className="card-header"><span className="card-title">Personal information</span></div>
+          <div className="card-header"><span className="card-title">{t('profileScreen.personalInfo')}</span></div>
           <div className="card-body">
-            <div className="detail-row"><span className="detail-key">Full name</span><span className="detail-val">{athlete?.name || '-'}</span></div>
-            <div className="detail-row"><span className="detail-key">Date of birth</span><span className="detail-val">{formatDate(athlete?.date_of_birth)}</span></div>
-            <div className="detail-row"><span className="detail-key">Email</span><span className="detail-val link">{athlete?.email || '-'}</span></div>
-            <div className="detail-row"><span className="detail-key">Phone</span><span className="detail-val">{athlete?.phone_number || '-'}</span></div>
-            <div className="detail-row"><span className="detail-key">Category</span><span className="detail-val">{athlete?.category || '-'}</span></div>
+            <div className="detail-row"><span className="detail-key">{t('profileScreen.fullName')}</span><span className="detail-val">{athlete?.name || '-'}</span></div>
+            <div className="detail-row"><span className="detail-key">{t('profileScreen.dob')}</span><span className="detail-val">{formatDate(athlete?.date_of_birth)}</span></div>
+            <div className="detail-row"><span className="detail-key">{t('profileScreen.email')}</span><span className="detail-val link">{athlete?.email || '-'}</span></div>
+            <div className="detail-row"><span className="detail-key">{t('profileScreen.phone')}</span><span className="detail-val">{athlete?.phone_number || '-'}</span></div>
+            <div className="detail-row"><span className="detail-key">{t('profileScreen.category')}</span><span className="detail-val">{athlete?.category || '-'}</span></div>
           </div>
         </div>
 
         {/* Preferences */}
         <div className="card">
-          <div className="card-header"><span className="card-title">Preferences</span></div>
+          <div className="card-header"><span className="card-title">{t('profileScreen.preferences')}</span></div>
           <div className="card-body">
             <div className="toggle-row">
-              <span className="toggle-label">Dark mode</span>
+              <span className="toggle-label">{t('profileScreen.darkMode')}</span>
               <button className={`toggle-switch ${isDarkTheme ? 'on' : ''}`} onClick={switchTheme} />
             </div>
           </div>
         </div>
 
         {/* Logout */}
-        <button className="btn-danger-outline" onClick={logout} style={{ marginTop: 8 }}>Log out</button>
+        <button className="btn-danger-outline" onClick={logout} style={{ marginTop: 8 }}>{t('profileScreen.logOut')}</button>
       </div>
     </>
   )

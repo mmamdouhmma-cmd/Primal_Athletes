@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { formatDate } from '../lib/helpers'
+import { useLanguage } from '../context/LanguageContext'
 
 /*
  * FeedbackDialog
@@ -16,6 +17,7 @@ import { formatDate } from '../lib/helpers'
  */
 
 export default function FeedbackDialog({ athlete, open, onClose }) {
+  const { t } = useLanguage()
   const [mode, setMode] = useState('list')
   const [myFeedbacks, setMyFeedbacks] = useState([])
   const [loading, setLoading] = useState(false)
@@ -97,8 +99,8 @@ export default function FeedbackDialog({ athlete, open, onClose }) {
   }
 
   async function submit() {
-    if (!text.trim()) { setError('Please write your feedback before submitting.'); return }
-    if (!athlete?.id) { setError('Not signed in.'); return }
+    if (!text.trim()) { setError(t('feedbackDialog.errWriteFeedback')); return }
+    if (!athlete?.id) { setError(t('feedbackDialog.errNotSignedIn')); return }
     setSubmitting(true)
     setError('')
     const { error: insErr } = await supabase.from('feedbacks').insert({
@@ -111,7 +113,7 @@ export default function FeedbackDialog({ athlete, open, onClose }) {
       branch_id: athlete.branch_id || null,
     })
     if (insErr) {
-      setError(insErr.message || 'Could not submit feedback.')
+      setError(insErr.message || t('feedbackDialog.errCouldNotSubmit'))
       setSubmitting(false)
       return
     }
@@ -122,6 +124,7 @@ export default function FeedbackDialog({ athlete, open, onClose }) {
       isAnonymous: isAnon,
       authorName: athlete.name,
       discipline: disciplines.find((d) => d.id === disciplineId) || null,
+      t,
     }).catch((e) => console.error('feedback notify failed:', e))
 
     setSubmitting(false)
@@ -143,7 +146,7 @@ export default function FeedbackDialog({ athlete, open, onClose }) {
         style={{ maxWidth: 440, maxHeight: '85vh', overflowY: 'auto' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <button className="modal-close" onClick={onClose} aria-label="Close">
+        <button className="modal-close" onClick={onClose} aria-label={t('common.close')}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <line x1="18" y1="6" x2="6" y2="18" />
             <line x1="6" y1="6" x2="18" y2="18" />
@@ -152,7 +155,7 @@ export default function FeedbackDialog({ athlete, open, onClose }) {
 
         {mode === 'list' ? (
           <>
-            <div className="modal-title">Your Feedbacks</div>
+            <div className="modal-title">{t('feedbackDialog.yourFeedbacks')}</div>
 
             {loading ? (
               <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
@@ -160,7 +163,7 @@ export default function FeedbackDialog({ athlete, open, onClose }) {
               </div>
             ) : myFeedbacks.length === 0 ? (
               <div className="empty-state" style={{ padding: '24px 0' }}>
-                You haven't submitted any feedback yet.
+                {t('feedbackDialog.noneSubmitted')}
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
@@ -171,21 +174,21 @@ export default function FeedbackDialog({ athlete, open, onClose }) {
             )}
 
             <button className="btn-primary" onClick={openAdd} style={{ width: '100%', marginTop: 4 }}>
-              Add Feedback
+              {t('feedbackDialog.addFeedback')}
             </button>
           </>
         ) : (
           <>
-            <div className="modal-title">Add Feedback</div>
+            <div className="modal-title">{t('feedbackDialog.addTitle')}</div>
 
             <div className="form-group">
-              <label className="form-label">Discipline (optional)</label>
+              <label className="form-label">{t('feedbackDialog.disciplineOptional')}</label>
               <select
                 className="form-input"
                 value={disciplineId}
                 onChange={(e) => { setDisciplineId(e.target.value); setClassId('') }}
               >
-                <option value="">—</option>
+                <option value="">{t('feedbackDialog.emptyOption')}</option>
                 {disciplines.map((d) => (
                   <option key={d.id} value={d.id}>{d.name}</option>
                 ))}
@@ -193,13 +196,13 @@ export default function FeedbackDialog({ athlete, open, onClose }) {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Class (optional)</label>
+              <label className="form-label">{t('feedbackDialog.classOptional')}</label>
               <select
                 className="form-input"
                 value={classId}
                 onChange={(e) => setClassId(e.target.value)}
               >
-                <option value="">—</option>
+                <option value="">{t('feedbackDialog.emptyOption')}</option>
                 {filteredClasses.map((c) => (
                   <option key={c.id} value={c.id}>
                     {classLabel(c)}
@@ -209,13 +212,13 @@ export default function FeedbackDialog({ athlete, open, onClose }) {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Coach (optional)</label>
+              <label className="form-label">{t('feedbackDialog.coachOptional')}</label>
               <select
                 className="form-input"
                 value={coachId}
                 onChange={(e) => setCoachId(e.target.value)}
               >
-                <option value="">—</option>
+                <option value="">{t('feedbackDialog.emptyOption')}</option>
                 {coaches.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
@@ -223,11 +226,11 @@ export default function FeedbackDialog({ athlete, open, onClose }) {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Your feedback *</label>
+              <label className="form-label">{t('feedbackDialog.yourFeedbackRequired')}</label>
               <textarea
                 className="form-input"
                 rows={5}
-                placeholder="What would you like to share?"
+                placeholder={t('feedbackDialog.textPlaceholder')}
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 style={{ resize: 'none' }}
@@ -236,9 +239,9 @@ export default function FeedbackDialog({ athlete, open, onClose }) {
 
             <div className="toggle-row" style={{ borderBottom: 'none', padding: '4px 0 14px' }}>
               <div>
-                <div className="toggle-label">Submit anonymously</div>
+                <div className="toggle-label">{t('feedbackDialog.submitAnon')}</div>
                 <div style={{ fontSize: 11, color: 'var(--pf-text3)', marginTop: 2 }}>
-                  Your name won't be shown to management.
+                  {t('feedbackDialog.anonSubtext')}
                 </div>
               </div>
               <button
@@ -258,7 +261,7 @@ export default function FeedbackDialog({ athlete, open, onClose }) {
                 disabled={submitting}
                 style={{ flex: 1 }}
               >
-                Back
+                {t('feedbackDialog.back')}
               </button>
               <button
                 className="btn-primary"
@@ -266,7 +269,7 @@ export default function FeedbackDialog({ athlete, open, onClose }) {
                 disabled={submitting || !text.trim()}
                 style={{ flex: 1 }}
               >
-                {submitting ? 'Sending…' : 'Submit'}
+                {submitting ? t('feedbackDialog.sendingEllipsis') : t('feedbackDialog.submit')}
               </button>
             </div>
           </>
@@ -277,13 +280,14 @@ export default function FeedbackDialog({ athlete, open, onClose }) {
 }
 
 function FeedbackRow({ fb }) {
+  const { t } = useLanguage()
   const d = fb.discipline
   const cls = fb.class
   const co = fb.coach
   const metaBits = [
     d?.name,
     cls ? classLabel(cls) : null,
-    co?.name ? `Coach ${co.name}` : null,
+    co?.name ? t('feedbackDialog.coachPrefix', { name: co.name }) : null,
   ].filter(Boolean)
 
   return (
@@ -314,7 +318,7 @@ function FeedbackRow({ fb }) {
                 background: 'rgba(148,163,184,0.18)', color: 'var(--pf-text2)',
               }}
             >
-              Anonymous
+              {t('feedbackDialog.anonymousBadge')}
             </span>
           )}
         </div>
@@ -358,7 +362,7 @@ function formatTime12(hms) {
  * Super admins are skipped to match existing behavior (they poll their own
  * data via the management page).
  */
-async function notifyManagement({ branchId, isAnonymous, authorName, discipline }) {
+async function notifyManagement({ branchId, isAnonymous, authorName, discipline, t }) {
   if (!branchId) return
   const { data: staff } = await supabase
     .from('coaches')
@@ -381,14 +385,14 @@ async function notifyManagement({ branchId, isAnonymous, authorName, discipline 
   })
   if (targets.length === 0) return
 
-  const who = isAnonymous ? 'An anonymous member' : authorName || 'A member'
-  const about = discipline?.name ? ` about ${discipline.name}` : ''
+  const who = isAnonymous ? t('feedbackDialog.anonMember') : authorName || t('feedbackDialog.aMember')
+  const about = discipline?.name ? t('feedbackDialog.aboutDiscipline', { discipline: discipline.name }) : ''
   const rows = targets.map((s) => ({
     recipient_id: s.id,
     recipient_type: s.role === 'receptionist' ? 'reception' : 'management',
     notification_type: 'feedback_submitted',
-    title: 'New Feedback',
-    message: `${who} submitted new feedback${about}.`,
+    title: t('feedbackDialog.newNotifTitle'),
+    message: t('feedbackDialog.submittedFeedback', { who, about }),
     is_read: false,
     branch_id: branchId,
   }))

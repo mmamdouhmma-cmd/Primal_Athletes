@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { useLanguage } from '../context/LanguageContext'
 
 export default function NotificationBell({ athleteId }) {
+  const { t } = useLanguage()
   const [items, setItems] = useState([])
   const [open, setOpen] = useState(false)
   const ref = useRef()
@@ -41,11 +43,11 @@ export default function NotificationBell({ athleteId }) {
 
   function ago(d) {
     const m = Math.floor((Date.now() - new Date(d).getTime()) / 60000)
-    if (m < 1) return 'now'
-    if (m < 60) return m + 'm ago'
+    if (m < 1) return t('notifBell.now')
+    if (m < 60) return t('notifBell.minutesAgo', { n: m })
     const h = Math.floor(m / 60)
-    if (h < 24) return h + 'h ago'
-    return Math.floor(h / 24) + 'd ago'
+    if (h < 24) return t('notifBell.hoursAgo', { n: h })
+    return t('notifBell.daysAgo', { n: Math.floor(h / 24) })
   }
 
   return (
@@ -65,14 +67,14 @@ export default function NotificationBell({ athleteId }) {
       {open && (
         <div className="notif-panel" style={{ display: 'block', animation: 'fadeSlideDown 0.2s ease' }}>
           <div className="notif-header">
-            <span className="notif-title">Notifications</span>
+            <span className="notif-title">{t('notifBell.notifications')}</span>
             {unread > 0 && (
-              <button className="notif-mark" onClick={markRead}>Mark all read</button>
+              <button className="notif-mark" onClick={markRead}>{t('notifBell.markAllRead')}</button>
             )}
           </div>
 
           {items.length === 0 ? (
-            <div className="empty-state" style={{ padding: '40px 0' }}>No notifications</div>
+            <div className="empty-state" style={{ padding: '40px 0' }}>{t('notifBell.none')}</div>
           ) : (
             items.map((n) => (
               <div key={n.id} className="notif-item">

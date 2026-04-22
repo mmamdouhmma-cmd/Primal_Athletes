@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { useLanguage } from '../context/LanguageContext'
 
 export default function PTBookingDialog({ athlete, open, onClose, onBooked }) {
+  const { t } = useLanguage()
   const [balance, setBalance] = useState(0)
   const [coach, setCoach] = useState(null)
   const [coachLoading, setCoachLoading] = useState(true)
@@ -37,10 +39,11 @@ export default function PTBookingDialog({ athlete, open, onClose, onBooked }) {
       student_id: athlete.id, coach_id: coach.id, branch_id: athlete.branch_id,
       booking_date: date, booking_time: time, status: 'pending', notes: notes || null,
     })
-    if (error) { alert('Error: ' + error.message); setSubmitting(false); return }
+    if (error) { alert(t('pt.errorPrefix') + error.message); setSubmitting(false); return }
     await supabase.from('notifications').insert({
       recipient_type: 'coach', recipient_id: coach.id, notification_type: 'pt_booking',
-      title: 'New PT Request', message: `${athlete.name} requested a session on ${date} at ${time}`,
+      title: t('pt.newRequestTitle'),
+      message: t('pt.newRequestMessage', { name: athlete.name, date, time }),
       related_entity_type: 'student', related_entity_id: athlete.id, branch_id: athlete.branch_id,
     })
     setTime(''); setNotes(''); onBooked?.(); onClose()
@@ -56,7 +59,7 @@ export default function PTBookingDialog({ athlete, open, onClose, onBooked }) {
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
         </button>
 
-        <div className="modal-title">Book PT session</div>
+        <div className="modal-title">{t('pt.modalTitle')}</div>
 
         {coachLoading ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 0' }}>
@@ -65,31 +68,31 @@ export default function PTBookingDialog({ athlete, open, onClose, onBooked }) {
         ) : !coach ? (
           <>
             <div className="alert-error" style={{ textAlign: 'left' }}>
-              <div style={{ fontWeight: 600 }}>No coach assigned</div>
-              <div style={{ fontSize: 11, color: 'var(--pf-text2)', marginTop: 4 }}>Please contact reception to get a PT package with an assigned coach.</div>
+              <div style={{ fontWeight: 600 }}>{t('pt.noCoachTitle')}</div>
+              <div style={{ fontSize: 11, color: 'var(--pf-text2)', marginTop: 4 }}>{t('pt.noCoachSubtext')}</div>
             </div>
-            <button className="btn-outline" onClick={onClose} style={{ width: '100%' }}>Close</button>
+            <button className="btn-outline" onClick={onClose} style={{ width: '100%' }}>{t('common.close')}</button>
           </>
         ) : (
           <>
             <div className="form-group">
-              <label className="form-label">Coach</label>
+              <label className="form-label">{t('pt.coachLabel')}</label>
               <input className="form-input" value={coach.name} readOnly style={{ opacity: 0.7 }} />
             </div>
             <div className="form-group">
-              <label className="form-label">Date</label>
+              <label className="form-label">{t('pt.dateLabel')}</label>
               <input className="form-input" type="date" value={date} onChange={(e) => setDate(e.target.value)} min={new Date().toISOString().split('T')[0]} />
             </div>
             <div className="form-group">
-              <label className="form-label">Time</label>
+              <label className="form-label">{t('pt.timeLabel')}</label>
               <input className="form-input" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
             </div>
             <div className="form-group">
-              <label className="form-label">Notes</label>
-              <textarea className="form-input" rows={3} placeholder="Any specific focus area..." value={notes} onChange={(e) => setNotes(e.target.value)} style={{ resize: 'none' }} />
+              <label className="form-label">{t('pt.notesLabel')}</label>
+              <textarea className="form-input" rows={3} placeholder={t('pt.notesPlaceholder')} value={notes} onChange={(e) => setNotes(e.target.value)} style={{ resize: 'none' }} />
             </div>
             <button className="btn-primary" onClick={book} disabled={submitting || balance <= 0 || !date || !time}>
-              {submitting ? 'Booking...' : 'Confirm booking'}
+              {submitting ? t('pt.booking2') : t('pt.confirmBooking')}
             </button>
           </>
         )}
