@@ -66,7 +66,7 @@ export default function CoachProfileDialog({ coachId, isAssigned, open, onClose 
                 )}
                 {isAssigned && coach.email && (
                   <div className="detail-row">
-                    <span className="detail-key">{t('coachDialog.emailLabel') || 'Email'}</span>
+                    <span className="detail-key">E-mail</span>
                     <span className="detail-val">{coach.email}</span>
                   </div>
                 )}
