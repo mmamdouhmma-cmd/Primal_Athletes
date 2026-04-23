@@ -885,16 +885,44 @@ function PTTab({ ptBalance, ptBookings, ptCoach, ptCoachId, athlete, onBook, onC
   const { t } = useLanguage()
   const [cancelling, setCancelling] = useState(null)
 
+  // Status keys must match every value the management/coach portals write to
+  // `personal_training_bookings.status`. Coach approval writes "approved"
+  // (DisciplineLayout.jsx handleAction), and the "awaiting_*" / "rejected"
+  // values come from the two-sided completion + decline flows. A missing key
+  // used to fall through to the `cancelled` fallback — turning approved
+  // bookings into visually-cancelled ones on the athlete side.
   const statusMap = {
-    pending: { cls: 'status-pending', label: t('pt.statusPending') },
-    scheduled: { cls: 'status-scheduled', label: t('pt.statusApproved') },
-    completed: { cls: 'status-completed', label: t('pt.statusCompleted') },
-    cancelled: { cls: 'status-cancelled', label: t('pt.statusCancelled') },
-    declined: { cls: 'status-declined', label: t('pt.statusDeclined') },
-    no_show: { cls: 'status-noshow', label: t('pt.statusNoShow') },
+    pending:         { cls: 'status-pending',   label: t('pt.statusPending') },
+    approved:        { cls: 'status-scheduled', label: t('pt.statusApproved') },
+    scheduled:       { cls: 'status-scheduled', label: t('pt.statusApproved') },
+    awaiting_coach:  { cls: 'status-pending',   label: t('pt.statusPending') },
+    awaiting_member: { cls: 'status-pending',   label: t('pt.statusPending') },
+    completed:       { cls: 'status-completed', label: t('pt.statusCompleted') },
+    cancelled:       { cls: 'status-cancelled', label: t('pt.statusCancelled') },
+    declined:        { cls: 'status-declined',  label: t('pt.statusDeclined') },
+    rejected:        { cls: 'status-declined',  label: t('pt.statusDeclined') },
+    no_show:         { cls: 'status-noshow',    label: t('pt.statusNoShow') },
+  }
+
+  // 3-hour cancellation cutoff. Computed against booking_date + booking_time
+  // parsed as local time — the scheduling page stores booking_time as "HH:mm"
+  // and the date as YYYY-MM-DD. Returns null when there's no time set (legacy
+  // bookings): in that case we don't enforce the window, since we can't
+  // compute it precisely.
+  const CANCEL_CUTOFF_HOURS = 3
+  function hoursUntilBooking(booking) {
+    if (!booking?.booking_date || !booking?.booking_time) return null
+    const start = new Date(`${booking.booking_date}T${booking.booking_time}`)
+    if (isNaN(start.getTime())) return null
+    return (start.getTime() - Date.now()) / 3600000
   }
 
   async function cancelBooking(booking) {
+    const hours = hoursUntilBooking(booking)
+    if (hours !== null && hours < CANCEL_CUTOFF_HOURS) {
+      alert(t('pt.cancelTooLate', { hours: CANCEL_CUTOFF_HOURS }) || `Cancellations must be made at least ${CANCEL_CUTOFF_HOURS} hours before the session.`)
+      return
+    }
     if (!confirm(t('pt.confirmCancel'))) return
     setCancelling(booking.id)
     const { error } = await supabase.from('personal_training_bookings')
@@ -936,8 +964,15 @@ function PTTab({ ptBalance, ptBookings, ptCoach, ptCoachId, athlete, onBook, onC
         <div className="card-body">
           {ptBookings.length === 0 ? <Empty text={t('pt.noBookings')} /> : (
             ptBookings.map((b) => {
-              const s = statusMap[b.status] || statusMap.cancelled
-              const canCancel = b.status === 'pending' || b.status === 'scheduled'
+              const s = statusMap[b.status] || statusMap.pending
+              const isCancellableStatus = b.status === 'pending' || b.status === 'scheduled' || b.status === 'approved'
+              const hours = hoursUntilBooking(b)
+              // Inside the 3-hour cutoff → show the button but disable it,
+              // so athletes see why they can't cancel instead of it silently
+              // disappearing. Legacy bookings without a time (hours === null)
+              // keep the old behaviour.
+              const withinCutoff = hours !== null && hours < CANCEL_CUTOFF_HOURS && hours > -1 // only block for future/just-past slots
+              const canCancel = isCancellableStatus
               return (
                 <div key={b.id} className="booking-item">
                   <div className="booking-top">
@@ -948,14 +983,22 @@ function PTTab({ ptBalance, ptBookings, ptCoach, ptCoachId, athlete, onBook, onC
                     {formatDate(b.booking_date)} · {b.booking_time || '-'}{b.notes ? ` · ${b.notes}` : ''}
                   </div>
                   {canCancel && (
-                    <button
-                      className="btn-danger-outline"
-                      style={{ marginTop: 8, padding: '5px 12px', fontSize: 11 }}
-                      onClick={() => cancelBooking(b)}
-                      disabled={cancelling === b.id}
-                    >
-                      {cancelling === b.id ? t('pt.cancelling') : t('pt.cancelSession')}
-                    </button>
+                    <>
+                      <button
+                        className="btn-danger-outline"
+                        style={{ marginTop: 8, padding: '5px 12px', fontSize: 11, opacity: withinCutoff ? 0.5 : 1, cursor: withinCutoff ? 'not-allowed' : 'pointer' }}
+                        onClick={() => cancelBooking(b)}
+                        disabled={cancelling === b.id || withinCutoff}
+                        title={withinCutoff ? (t('pt.cancelTooLate', { hours: CANCEL_CUTOFF_HOURS }) || `Cancellations must be made at least ${CANCEL_CUTOFF_HOURS} hours before the session.`) : undefined}
+                      >
+                        {cancelling === b.id ? t('pt.cancelling') : t('pt.cancelSession')}
+                      </button>
+                      {withinCutoff && (
+                        <div style={{ fontSize: 11, color: '#D97706', marginTop: 4, fontWeight: 500 }}>
+                          {t('pt.cancelTooLate', { hours: CANCEL_CUTOFF_HOURS }) || `Cancellations must be made at least ${CANCEL_CUTOFF_HOURS} hours before the session.`}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               )
