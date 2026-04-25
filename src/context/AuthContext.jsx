@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { subscribeToPush } from '../lib/pushManager'
 
 const AuthContext = createContext(null)
 
@@ -36,6 +37,7 @@ export function AuthProvider({ children }) {
 
       setAthlete(member)
       localStorage.setItem('athlete-session', JSON.stringify({ id: member.id, name: member.name }))
+      subscribeToPush(member.id, 'student').catch(() => {})
     } else {
       localStorage.removeItem('athlete-session')
     }
@@ -45,6 +47,7 @@ export function AuthProvider({ children }) {
   function login(member) {
     setAthlete(member)
     localStorage.setItem('athlete-session', JSON.stringify({ id: member.id, name: member.name }))
+    subscribeToPush(member.id, 'student').catch(() => {})
   }
 
   function logout() {
