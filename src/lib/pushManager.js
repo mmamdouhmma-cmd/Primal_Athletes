@@ -61,6 +61,30 @@ export async function subscribeToPush(userId, userType = 'student') {
   return subscription
 }
 
+// Trigger the send-push Edge Function. Inserts the in-app notification row
+// AND fires Web Push to all of the recipient's subscribed devices.
+export async function sendNotification({ recipientId, recipientType, notificationType, title, message, url = '/', branchId }) {
+  if (!recipientId || !title) return
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+  if (!supabaseUrl || !anonKey) {
+    console.warn('[Push] Supabase env not set — notification skipped')
+    return
+  }
+  try {
+    await fetch(`${supabaseUrl}/functions/v1/send-push`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${anonKey}`,
+      },
+      body: JSON.stringify({ recipientId, recipientType, notificationType, title, message, url, branchId }),
+    })
+  } catch (err) {
+    console.warn('[Push] Failed to send notification:', err)
+  }
+}
+
 export async function unsubscribeFromPush(userId) {
   if (!('serviceWorker' in navigator)) return
   const reg = await navigator.serviceWorker.getRegistration('/sw.js')

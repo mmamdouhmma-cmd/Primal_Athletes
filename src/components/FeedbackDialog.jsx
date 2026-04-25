@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import { sendNotification } from '../lib/pushManager'
 import { formatDate } from '../lib/helpers'
 import { useLanguage } from '../context/LanguageContext'
 
@@ -387,14 +388,16 @@ async function notifyManagement({ branchId, isAnonymous, authorName, discipline,
 
   const who = isAnonymous ? t('feedbackDialog.anonMember') : authorName || t('feedbackDialog.aMember')
   const about = discipline?.name ? t('feedbackDialog.aboutDiscipline', { discipline: discipline.name }) : ''
-  const rows = targets.map((s) => ({
-    recipient_id: s.id,
-    recipient_type: s.role === 'receptionist' ? 'reception' : 'management',
-    notification_type: 'feedback_submitted',
-    title: t('feedbackDialog.newNotifTitle'),
-    message: t('feedbackDialog.submittedFeedback', { who, about }),
-    is_read: false,
-    branch_id: branchId,
-  }))
-  await supabase.from('notifications').insert(rows)
+  await Promise.all(
+    targets.map((s) =>
+      sendNotification({
+        recipientId: s.id,
+        recipientType: s.role === 'receptionist' ? 'reception' : 'management',
+        notificationType: 'feedback_submitted',
+        title: t('feedbackDialog.newNotifTitle'),
+        message: t('feedbackDialog.submittedFeedback', { who, about }),
+        branchId,
+      })
+    )
+  )
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { sendNotification } from '../lib/pushManager'
 import { useLanguage } from '../context/LanguageContext'
 
 export default function PTBookingDialog({ athlete, open, onClose, onBooked }) {
@@ -40,11 +41,23 @@ export default function PTBookingDialog({ athlete, open, onClose, onBooked }) {
       booking_date: date, booking_time: time, status: 'pending', notes: notes || null,
     })
     if (error) { alert(t('pt.errorPrefix') + error.message); setSubmitting(false); return }
-    await supabase.from('notifications').insert({
-      recipient_type: 'coach', recipient_id: coach.id, notification_type: 'pt_booking',
+    // Notify the coach (push to coach's devices)
+    await sendNotification({
+      recipientId: coach.id,
+      recipientType: 'coach',
+      notificationType: 'pt_booking_new',
       title: t('pt.newRequestTitle'),
       message: t('pt.newRequestMessage', { name: athlete.name, date, time }),
-      related_entity_type: 'student', related_entity_id: athlete.id, branch_id: athlete.branch_id,
+      branchId: athlete.branch_id,
+    })
+    // Confirm to the athlete (push to athlete's devices)
+    await sendNotification({
+      recipientId: athlete.id,
+      recipientType: 'athlete',
+      notificationType: 'pt_booking_new',
+      title: 'PT request sent',
+      message: `Your PT booking request for ${date} ${time} was sent to ${coach.name}.`,
+      branchId: athlete.branch_id,
     })
     setTime(''); setNotes(''); onBooked?.(); onClose()
     setSubmitting(false)

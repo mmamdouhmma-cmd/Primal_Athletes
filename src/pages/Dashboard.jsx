@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
+import { sendNotification } from '../lib/pushManager'
 import { formatDate, daysUntil, getInitials } from '../lib/helpers'
 import NotificationBell from '../components/NotificationBell'
 import PTBookingDialog from '../components/PTBookingDialog'
@@ -929,13 +930,25 @@ function PTTab({ ptBalance, ptBookings, ptCoach, ptCoachId, athlete, onBook, onC
       .update({ status: 'cancelled' }).eq('id', booking.id)
     if (error) { alert(t('pt.errorPrefix') + error.message); setCancelling(null); return }
     if (booking.coach_id) {
-      await supabase.from('notifications').insert({
-        recipient_type: 'coach', recipient_id: booking.coach_id, notification_type: 'pt_cancellation',
+      // Notify the coach (push)
+      await sendNotification({
+        recipientId: booking.coach_id,
+        recipientType: 'coach',
+        notificationType: 'pt_session_cancelled',
         title: t('pt.cancelNotifTitle'),
         message: t('pt.cancelNotifMessage', { name: athlete.name, date: booking.booking_date, time: booking.booking_time }),
-        related_entity_type: 'student', related_entity_id: athlete.id, branch_id: athlete.branch_id,
+        branchId: athlete.branch_id,
       })
     }
+    // Confirm to the athlete (push)
+    await sendNotification({
+      recipientId: athlete.id,
+      recipientType: 'athlete',
+      notificationType: 'pt_session_cancelled',
+      title: 'Session cancelled',
+      message: `Your PT session on ${booking.booking_date} ${booking.booking_time} has been cancelled.`,
+      branchId: athlete.branch_id,
+    })
     setCancelling(null)
     onCancelled?.()
   }
