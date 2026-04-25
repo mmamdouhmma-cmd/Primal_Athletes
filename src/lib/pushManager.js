@@ -53,10 +53,11 @@ export async function subscribeToPush(userId, userType = 'student') {
 
   const { endpoint, keys } = subscription.toJSON()
 
-  await supabase.from('push_subscriptions').upsert(
+  const { error: upsertErr } = await supabase.from('push_subscriptions').upsert(
     { user_id: userId, user_type: userType, endpoint, p256dh: keys.p256dh, auth: keys.auth },
-    { onConflict: 'user_id,endpoint' }
+    { onConflict: 'endpoint' }
   )
+  if (upsertErr) console.warn('[Push] Upsert subscription failed:', upsertErr)
 
   return subscription
 }
