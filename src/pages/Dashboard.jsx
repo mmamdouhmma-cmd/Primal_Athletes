@@ -10,6 +10,14 @@ import ProfileEditDialog from '../components/ProfileEditDialog'
 import FeedbackDialog from '../components/FeedbackDialog'
 import LanguageSwitcher from '../components/LanguageSwitcher'
 import { useLanguage } from '../context/LanguageContext'
+import {
+  GYM_PARKOUR_CONFIG,
+  isGymParkourEntry,
+  computeGymParkourScore,
+  FLEX_META,
+  LEVEL_META,
+} from '../lib/gymParkourProgress'
+import { getDisciplineSections } from '../lib/progressConfigs'
 
 /* ── SVG Icons ── */
 const Icons = {
@@ -597,10 +605,206 @@ function AttendanceTab({ attendance, disciplines, discNames }) {
 }
 
 /* ════════════════════════════════════════════════════════
+   GYMNASTICS / PARKOUR — structured entry renderer
+   ════════════════════════════════════════════════════════ */
+function GymParkourProgressEntry({ entry, discColor, coachName, coachId, onViewCoach }) {
+  const data = entry.progress_data || {}
+  const { earned, max, pct, level } = computeGymParkourScore(data)
+
+  // Pull rated items per section, skipping null/empty so the athlete sees only
+  // what the coach actually evaluated.
+  const flex = GYM_PARKOUR_CONFIG.flexibility.items
+    .map((it) => ({ ...it, value: data[it.key] }))
+    .filter((it) => it.value === 'weak' || it.value === 'good' || it.value === 'excellent')
+  const strength = GYM_PARKOUR_CONFIG.strength.items
+    .map((it) => ({ ...it, value: data[it.key] }))
+    .filter((it) => typeof it.value === 'number' && !isNaN(it.value))
+  const skills = GYM_PARKOUR_CONFIG.skills.items
+    .map((it) => ({ ...it, value: data[it.key] }))
+    .filter((it) => it.value === true || it.value === false)
+
+  const dateStr = formatDate(entry.evaluated_at)
+  const accent = discColor || 'var(--pf-blue-light)'
+
+  return (
+    <div>
+      {/* Flexibility — colored chip per rated item */}
+      {flex.length > 0 && (
+        <div className="card">
+          <div className="card-header">
+            <span className="card-title">Flexibility</span>
+            <span style={{ fontSize: 10, color: 'var(--pf-text3)' }}>{dateStr}</span>
+          </div>
+          <div className="card-body">
+            {flex.map((it) => {
+              const meta = FLEX_META[it.value]
+              return (
+                <div
+                  key={it.key}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '8px 0', borderBottom: '1px solid var(--pf-border)',
+                  }}
+                >
+                  <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--pf-text)' }}>{it.label}</span>
+                  <span style={{
+                    fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
+                    background: meta.bg, color: meta.color, letterSpacing: 0.3,
+                  }}>
+                    {meta.label}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Strength — measurement values with units */}
+      {strength.length > 0 && (
+        <div className="card">
+          <div className="card-header">
+            <span className="card-title">Strength</span>
+            <span style={{ fontSize: 10, color: 'var(--pf-text3)' }}>{dateStr}</span>
+          </div>
+          <div className="card-body">
+            {strength.map((it) => (
+              <div
+                key={it.key}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '8px 0', borderBottom: '1px solid var(--pf-border)',
+                }}
+              >
+                <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--pf-text)' }}>{it.label}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: accent }}>
+                  {it.value}
+                  <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--pf-text3)', marginLeft: 4, letterSpacing: 0.4 }}>
+                    {(it.unit || '').toUpperCase()}
+                  </span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Skills — ✓ / ✗ pill per rated item */}
+      {skills.length > 0 && (
+        <div className="card">
+          <div className="card-header">
+            <span className="card-title">Skills</span>
+            <span style={{ fontSize: 10, color: 'var(--pf-text3)' }}>{dateStr}</span>
+          </div>
+          <div className="card-body">
+            {skills.map((it) => {
+              const ok = it.value === true
+              return (
+                <div
+                  key={it.key}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '8px 0', borderBottom: '1px solid var(--pf-border)',
+                  }}
+                >
+                  <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--pf-text)' }}>{it.label}</span>
+                  <span style={{
+                    width: 26, height: 26, borderRadius: '50%',
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 14, fontWeight: 700,
+                    background: ok ? 'rgba(34, 197, 94, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                    color: ok ? 'var(--pf-green)' : 'var(--pf-red)',
+                  }}>
+                    {ok ? '✓' : '✗'}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Final Evaluation summary */}
+      {max > 0 && (
+        <div className="card">
+          <div className="card-header">
+            <span className="card-title">Final Evaluation</span>
+            <span style={{ fontSize: 10, color: 'var(--pf-text3)' }}>Auto-calculated</span>
+          </div>
+          <div className="card-body">
+            <div style={{
+              display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'baseline',
+              marginBottom: 10,
+            }}>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--pf-text3)', letterSpacing: 0.6, textTransform: 'uppercase' }}>
+                  Score
+                </div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--pf-text)' }}>
+                  {earned}
+                  <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--pf-text3)' }}> / {max}</span>
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--pf-text3)', letterSpacing: 0.6, textTransform: 'uppercase' }}>
+                  Percent
+                </div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: accent }}>
+                  {pct}%
+                </div>
+              </div>
+              {level && (
+                <span style={{
+                  marginLeft: 'auto',
+                  padding: '4px 12px', borderRadius: 20,
+                  fontSize: 11, fontWeight: 700, letterSpacing: 0.4,
+                  background: LEVEL_META[level].bg, color: LEVEL_META[level].color,
+                }}>
+                  {level}
+                </span>
+              )}
+            </div>
+            <div className="progress-bar" style={{ height: 8 }}>
+              <div
+                className="progress-fill"
+                style={{
+                  width: `${pct}%`,
+                  background: `linear-gradient(90deg, ${accent}, ${accent}CC)`,
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {(entry.notes || coachName) && (
+        <div className="coach-note">
+          {entry.notes && <p>"{entry.notes}"</p>}
+          <div className="coach-name">
+            — <span className={coachId ? 'coach-link' : ''} onClick={coachId ? () => onViewCoach(coachId) : undefined}>{coachName}</span>
+            {' · '}{formatDate(entry.evaluated_at)}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ════════════════════════════════════════════════════════
    PROGRESS TAB
    ════════════════════════════════════════════════════════ */
 function ProgressTab({ progress, disciplines, onViewCoach }) {
   const { t } = useLanguage()
+  // Track which entries are expanded. All collapsed by default — newest is on
+  // top of each discipline group so it's still one tap away.
+  const [expandedIds, setExpandedIds] = useState(() => new Set())
+  const toggleEntry = (id) => setExpandedIds((prev) => {
+    const next = new Set(prev)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    return next
+  })
+
   if (!progress.length) return <Empty text={t('progress.noEvaluations')} />
 
   // Group progress entries by discipline
@@ -630,81 +834,61 @@ function ProgressTab({ progress, disciplines, onViewCoach }) {
             </div>
 
             {entries.map((r) => {
-              const data = r.progress_data || {}
-              const { _weightUnit, ...fields } = data
-              const allEntries = Object.entries(fields)
-              // Separate behavioral keys from technical
-              const behavioralKeys = ['composure', 'listening', 'focus', 'understanding', 'behavior']
-              const tech = allEntries.filter(([k]) => !behavioralKeys.includes(k))
-              const behavioral = allEntries.filter(([k]) => behavioralKeys.includes(k))
+              const isOpen = expandedIds.has(r.id)
               const coachName = r.coaches?.name || t('coaches.coachLabel')
               const coachId = r.coaches?.id
 
               return (
-                <div key={r.id}>
-                  {tech.length > 0 && (
-                    <div className="card">
-                      <div className="card-header">
-                        <span className="card-title">{t('progress.technicalSkills')}</span>
-                        <span style={{ fontSize: 10, color: 'var(--pf-text3)' }}>{formatDate(r.evaluated_at)}</span>
-                      </div>
-                      <div className="card-body">
-                        {tech.map(([name, value]) => {
-                          const numVal = typeof value === 'number' ? value : parseFloat(value)
-                          const isScore = !isNaN(numVal) && numVal <= 10
-                          const displayVal = typeof value === 'object' && value !== null
-                            ? Object.entries(value).map(([k, v]) => `${v}${k}`).join(' ')
-                            : value
-                          return (
-                            <div key={name} className="progress-item">
-                              <div className="progress-label">
-                                <span className="progress-name" style={{ textTransform: 'capitalize' }}>{name.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim()}</span>
-                                <span className="progress-val">{isScore ? `${numVal}/10` : displayVal}{_weightUnit && typeof value === 'number' && !isScore ? ` ${_weightUnit}` : ''}</span>
-                              </div>
-                              {isScore && (
-                                <div className="progress-bar">
-                                  <div className="progress-fill fill-blue" style={{ width: `${numVal * 10}%` }} />
-                                </div>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
+                <div key={r.id} style={{ marginBottom: 12 }}>
+                  {/* Collapsible header — date + discipline + coach */}
+                  <button
+                    type="button"
+                    onClick={() => toggleEntry(r.id)}
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      gap: 12, padding: '12px 14px',
+                      background: 'var(--pf-surface)',
+                      border: '1px solid var(--pf-border)',
+                      borderLeft: `3px solid ${discColor}`,
+                      borderRadius: isOpen ? 'var(--pf-radius) var(--pf-radius) 0 0' : 'var(--pf-radius)',
+                      borderBottom: isOpen ? '1px solid var(--pf-border)' : '1px solid var(--pf-border)',
+                      cursor: 'pointer', textAlign: 'left',
+                      fontFamily: 'inherit', color: 'inherit',
+                      transition: 'background 0.15s',
+                    }}
+                  >
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--pf-text)' }}>
+                        {formatDate(r.evaluated_at)} · {discLabel} progress rating
+                      </span>
+                      <span style={{ fontSize: 11, color: 'var(--pf-text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        by Coach {coachName}
+                      </span>
                     </div>
-                  )}
+                    {/* Chevron — rotates 90° when open */}
+                    <span style={{
+                      flexShrink: 0, width: 22, height: 22,
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      color: 'var(--pf-text3)',
+                      transform: `rotate(${isOpen ? 90 : 0}deg)`,
+                      transition: 'transform 0.2s ease',
+                    }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="9 18 15 12 9 6" />
+                      </svg>
+                    </span>
+                  </button>
 
-                  {behavioral.length > 0 && (
-                    <div className="card">
-                      <div className="card-header">
-                        <span className="card-title">{t('progress.behavioralSkills')}</span>
-                        <span style={{ fontSize: 10, color: 'var(--pf-text3)' }}>{formatDate(r.evaluated_at)}</span>
-                      </div>
-                      <div className="card-body">
-                        {behavioral.map(([name, value]) => {
-                          const numVal = typeof value === 'number' ? value : parseFloat(value)
-                          return (
-                            <div key={name} className="progress-item">
-                              <div className="progress-label">
-                                <span className="progress-name" style={{ textTransform: 'capitalize' }}>{name.replace(/_/g, ' ')}</span>
-                                <span className="progress-val">{numVal}/10</span>
-                              </div>
-                              <div className="progress-bar">
-                                <div className="progress-fill fill-green" style={{ width: `${numVal * 10}%` }} />
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {(r.notes || coachName) && (
-                    <div className="coach-note">
-                      {r.notes && <p>"{r.notes}"</p>}
-                      <div className="coach-name">
-                        — <span className={coachId ? 'coach-link' : ''} onClick={coachId ? () => onViewCoach(coachId) : undefined}>{coachName}</span>
-                        {' · '}{formatDate(r.evaluated_at)}
-                      </div>
+                  {/* Expanded body — full evaluation + coach note */}
+                  {isOpen && (
+                    <div style={{
+                      padding: '12px 14px',
+                      background: 'var(--pf-surface2)',
+                      border: '1px solid var(--pf-border)',
+                      borderTop: 'none',
+                      borderRadius: '0 0 var(--pf-radius) var(--pf-radius)',
+                    }}>
+                      <ProgressEntryBody entry={r} discColor={discColor} coachName={coachName} coachId={coachId} onViewCoach={onViewCoach} />
                     </div>
                   )}
                 </div>
@@ -714,6 +898,154 @@ function ProgressTab({ progress, disciplines, onViewCoach }) {
         )
       })}
     </>
+  )
+}
+
+/* Strip well-known section prefixes from a saved key, then snake_case → Title.
+   Keys without a known prefix (e.g. BJJ "full_guard_top", "composure") fall
+   straight through. Used to label rows in the generic progress renderer. */
+function prettyFieldLabel(key) {
+  const noPrefix = key.replace(/^(mob_|stab_|gym_|str_|cond_|bench_)/, '')
+  return noPrefix
+    .split('_')
+    .map((w) => (w.length > 0 ? w[0].toUpperCase() + w.slice(1) : w))
+    .join(' ')
+}
+
+/* Decide how to render a single field. Returns null for empty/unrated values
+   so the row gets skipped — no more "mins secs" placeholders or blank rights.
+   `weightUnit` only applies when the key is a strength field (str_*). */
+function describeField(key, value, weightUnit) {
+  if (value == null || value === '') return null
+
+  // Time values (Fitness conditioning/benchmark) are saved as { mins, secs }.
+  if (typeof value === 'object') {
+    const m = Number(value.mins) || 0
+    const s = Number(value.secs) || 0
+    if (m === 0 && s === 0) return null
+    return { kind: 'time', display: `${m}:${String(s).padStart(2, '0')}` }
+  }
+
+  if (typeof value === 'boolean') {
+    return { kind: 'bool', display: value ? '✓' : '✗' }
+  }
+
+  if (typeof value !== 'number') {
+    // String values (e.g. flex_rating "good") — render verbatim, capitalised.
+    const s = String(value)
+    return { kind: 'text', display: s.charAt(0).toUpperCase() + s.slice(1) }
+  }
+
+  // Numeric branches.
+  if (key.startsWith('str_')) {
+    return { kind: 'weight', display: `${value} ${(weightUnit || 'kg').toUpperCase()}` }
+  }
+  // Score sliders are saved on a 0–100 scale across all martial-arts disciplines
+  // and Fitness mobility/stability/gymnastics sections. Anything ≤ 10 is treated
+  // as a 0–10 score (older entries / behavioral rubrics) — bar still scales.
+  const max = value <= 10 ? 10 : 100
+  return { kind: 'score', display: `${value}/${max}`, pct: Math.min(100, (value / max) * 100) }
+}
+
+/* Entry body — dispatches between Gym/Parkour structured render and a per-section
+   render driven by progressConfigs.js. Used inside the expanded panel. */
+function ProgressEntryBody({ entry, discColor, coachName, coachId, onViewCoach }) {
+  const { t } = useLanguage()
+  const data = entry.progress_data || {}
+
+  if (isGymParkourEntry(data)) {
+    return (
+      <GymParkourProgressEntry
+        entry={entry}
+        discColor={discColor}
+        coachName={coachName}
+        coachId={coachId}
+        onViewCoach={onViewCoach}
+      />
+    )
+  }
+
+  const { _weightUnit, ...fields } = data
+  const sections = getDisciplineSections(entry.discipline_id)
+  const dateStr = formatDate(entry.evaluated_at)
+
+  // Walk the configured sections in order, building a card per section that
+  // has at least one rated value. Behavioral cards get the green bar accent;
+  // every other section uses the discipline color so the visual stays unified.
+  const renderedSections = []
+  const usedKeys = new Set()
+  if (sections) {
+    for (const section of sections) {
+      const rows = []
+      for (const key of section.keys) {
+        usedKeys.add(key)
+        if (!(key in fields)) continue
+        const meta = describeField(key, fields[key], _weightUnit)
+        if (!meta) continue
+        rows.push({ key, meta })
+      }
+      if (rows.length === 0) continue
+      const isBehavioral = /behavioral/i.test(section.label)
+      renderedSections.push({ label: section.label, rows, isBehavioral })
+    }
+  }
+
+  // Any keys not covered by the config (schema drift, new attribute) — render
+  // them in a final "Other" card so nothing gets silently dropped.
+  const orphanRows = Object.entries(fields)
+    .filter(([k]) => !usedKeys.has(k))
+    .map(([k, v]) => ({ key: k, meta: describeField(k, v, _weightUnit) }))
+    .filter((r) => r.meta !== null)
+  if (orphanRows.length > 0) {
+    // Fallback for unknown disciplines: split orphans into Technical/Behavioral
+    // using the historic five-key behavioral list, mirroring the old generic render.
+    if (!sections) {
+      const behavioralKeys = ['composure', 'listening', 'focus', 'understanding', 'behavior']
+      const tech = orphanRows.filter((r) => !behavioralKeys.includes(r.key))
+      const beh = orphanRows.filter((r) => behavioralKeys.includes(r.key))
+      if (tech.length > 0) renderedSections.push({ label: t('progress.technicalSkills'), rows: tech, isBehavioral: false })
+      if (beh.length > 0)  renderedSections.push({ label: t('progress.behavioralSkills'), rows: beh, isBehavioral: true })
+    } else {
+      renderedSections.push({ label: 'Other', rows: orphanRows, isBehavioral: false })
+    }
+  }
+
+  return (
+    <div>
+      {renderedSections.map((section) => (
+        <div key={section.label} className="card">
+          <div className="card-header">
+            <span className="card-title">{section.label}</span>
+            <span style={{ fontSize: 10, color: 'var(--pf-text3)' }}>{dateStr}</span>
+          </div>
+          <div className="card-body">
+            {section.rows.map(({ key, meta }) => (
+              <div key={key} className="progress-item">
+                <div className="progress-label">
+                  <span className="progress-name">{prettyFieldLabel(key)}</span>
+                  <span className="progress-val">{meta.display}</span>
+                </div>
+                {meta.kind === 'score' && (
+                  <div className="progress-bar">
+                    <div className={`progress-fill ${section.isBehavioral ? 'fill-green' : 'fill-blue'}`} style={{ width: `${meta.pct}%` }} />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {(entry.notes || coachName) && (
+        <div className="coach-note">
+          {entry.notes && <p>"{entry.notes}"</p>}
+          <div className="coach-name">
+            — <span className={coachId ? 'coach-link' : ''} onClick={coachId ? () => onViewCoach(coachId) : undefined}>{coachName}</span>
+            {' · '}{dateStr}
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 
