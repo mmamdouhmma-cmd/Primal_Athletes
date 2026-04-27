@@ -64,8 +64,13 @@ export default function Dashboard() {
   const [levelRows, setLevelRows] = useState([])
   const [ptBalance, setPtBalance] = useState(0)
   const [ptBookings, setPtBookings] = useState([])
-  const [ptCoach, setPtCoach] = useState(null)
-  const [ptCoachId, setPtCoachId] = useState(null)
+  // Multi-coach: each active pt_members row is its own package card.
+  // ptPackages: [{ id, totalSessions, usedSessions, sessionsLeft, startDate, expiryDate, coachIds, coachNames }]
+  // ptCoachIds: union of all coach ids across packages — used by CoachesTab "Your coach" badge.
+  const [ptPackages, setPtPackages] = useState([])
+  const [ptCoachIds, setPtCoachIds] = useState([])
+  // Booking dialog: when a per-package "Book" is clicked, this holds the chosen package.
+  const [bookingPackage, setBookingPackage] = useState(null)
   const [showPTBooking, setShowPTBooking] = useState(false)
   const [showCoachProfile, setShowCoachProfile] = useState(false)
   const [viewCoachId, setViewCoachId] = useState(null)
@@ -98,24 +103,79 @@ export default function Dashboard() {
   const loadData = useCallback(async () => {
     if (!athlete?.id) return
     setLoading(true)
-    const [a, p, pt, pb, lv] = await Promise.all([
+    const [a, p, ptm, pb, lv] = await Promise.all([
       supabase.from('attendance').select('*').eq('student_id', athlete.id).order('date', { ascending: false }),
       supabase.from('member_progress').select('*, coaches:evaluated_by(id, name)').eq('member_id', athlete.id).order('evaluated_at', { ascending: false }),
-      supabase.from('personal_training_purchases').select('sessions_remaining, coach_id').eq('student_id', athlete.id).gt('sessions_remaining', 0),
+      supabase.from('pt_members')
+        .select('id, total_sessions, used_sessions, coach_id, coach_name, start_date, expiry_date, status, created_at')
+        .eq('student_id', athlete.id)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false }),
       supabase.from('personal_training_bookings').select('*').eq('student_id', athlete.id).order('booking_date', { ascending: false }).limit(20),
       supabase.from('student_discipline_levels').select('discipline_id, level, bjj_belt, bjj_stripes').eq('student_id', athlete.id),
     ])
     setAttendance(a.data || [])
     setProgress(p.data || [])
-    setPtBalance((pt.data || []).reduce((s, r) => s + (r.sessions_remaining || 0), 0))
     setPtBookings(pb.data || [])
     setLevelRows(lv.data || [])
 
-    if (pt.data?.length && pt.data[0].coach_id) {
-      let { data: c } = await supabase.from('coaches').select('id, name').eq('id', pt.data[0].coach_id).maybeSingle()
-      setPtCoach(c?.name || null)
-      setPtCoachId(c?.id || null)
+    // Build per-package PT data + multi-coach
+    const ptmRows = ptm.data || []
+    const coachIdsUnion = new Set()
+    let packages = []
+    let totalBalance = 0
+
+    if (ptmRows.length > 0) {
+      const ptMemberIds = ptmRows.map((r) => r.id)
+      const { data: pmcData } = await supabase
+        .from('pt_member_coaches')
+        .select('pt_member_id, coach_id')
+        .in('pt_member_id', ptMemberIds)
+
+      const coachIdsByPtm = {}
+      for (const r of pmcData || []) {
+        if (!coachIdsByPtm[r.pt_member_id]) coachIdsByPtm[r.pt_member_id] = []
+        coachIdsByPtm[r.pt_member_id].push(r.coach_id)
+        coachIdsUnion.add(r.coach_id)
+      }
+
+      // Resolve names for the union (junction may be empty for legacy packages → fallback to pt_members.coach_id)
+      for (const pm of ptmRows) {
+        if (pm.coach_id) coachIdsUnion.add(pm.coach_id)
+      }
+      const coachNameById = {}
+      const allCoachIds = [...coachIdsUnion]
+      if (allCoachIds.length > 0) {
+        const { data: cData } = await supabase.from('coaches').select('id, name').in('id', allCoachIds)
+        for (const c of cData || []) coachNameById[c.id] = c.name
+      }
+
+      packages = ptmRows.map((pm) => {
+        const junctionIds = coachIdsByPtm[pm.id] || []
+        const coachIds = junctionIds.length > 0
+          ? junctionIds
+          : (pm.coach_id ? [pm.coach_id] : [])
+        const coachNames = coachIds
+          .map((id) => coachNameById[id] || (id === pm.coach_id ? pm.coach_name : null))
+          .filter(Boolean)
+        const sessionsLeft = Math.max(0, (pm.total_sessions || 0) - (pm.used_sessions || 0))
+        totalBalance += sessionsLeft
+        return {
+          id: pm.id,
+          totalSessions: pm.total_sessions || 0,
+          usedSessions: pm.used_sessions || 0,
+          sessionsLeft,
+          startDate: pm.start_date,
+          expiryDate: pm.expiry_date,
+          coachIds,
+          coachNames,
+        }
+      })
     }
+
+    setPtPackages(packages)
+    setPtBalance(totalBalance)
+    setPtCoachIds([...coachIdsUnion])
     setLoading(false)
   }, [athlete?.id])
 
@@ -300,8 +360,8 @@ export default function Dashboard() {
                 {tab === 'attendance' && <AttendanceTab attendance={attendance} disciplines={disciplines} discNames={discNames} />}
                 {tab === 'progress' && <ProgressTab progress={progress} disciplines={disciplines} onViewCoach={(coachId) => { setViewCoachId(coachId); setViewCoachAssigned(coachId === ptCoachId); setShowCoachProfile(true) }} />}
                 {tab === 'workouts' && <WorkoutsTab athlete={athlete} disciplines={disciplines} />}
-                {tab === 'pt' && <PTTab ptBalance={ptBalance} ptBookings={ptBookings} ptCoach={ptCoach} ptCoachId={ptCoachId} athlete={athlete} onBook={() => setShowPTBooking(true)} onCancelled={loadData} onViewCoach={ptCoachId ? () => { setViewCoachId(ptCoachId); setViewCoachAssigned(true); setShowCoachProfile(true) } : undefined} />}
-                {tab === 'coaches' && <CoachesTab ptCoachId={ptCoachId} branchId={athlete?.branch_id} onViewCoach={(id) => { setViewCoachId(id); setViewCoachAssigned(id === ptCoachId); setShowCoachProfile(true) }} />}
+                {tab === 'pt' && <PTTab ptBalance={ptBalance} ptPackages={ptPackages} ptBookings={ptBookings} athlete={athlete} onBook={(pkg) => { setBookingPackage(pkg); setShowPTBooking(true) }} onCancelled={loadData} onViewCoach={(coachId) => { setViewCoachId(coachId); setViewCoachAssigned(true); setShowCoachProfile(true) }} />}
+                {tab === 'coaches' && <CoachesTab ptCoachIds={ptCoachIds} branchId={athlete?.branch_id} onViewCoach={(id) => { setViewCoachId(id); setViewCoachAssigned(ptCoachIds.includes(id)); setShowCoachProfile(true) }} />}
               </div>
             </>
           )}
@@ -331,7 +391,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── Modals ── */}
-      <PTBookingDialog athlete={athlete} open={showPTBooking} onClose={() => setShowPTBooking(false)} onBooked={loadData} />
+      <PTBookingDialog athlete={athlete} open={showPTBooking} ptPackage={bookingPackage} onClose={() => { setShowPTBooking(false); setBookingPackage(null) }} onBooked={loadData} />
       <CoachProfileDialog coachId={viewCoachId} isAssigned={viewCoachAssigned} open={showCoachProfile} onClose={() => setShowCoachProfile(false)} />
       <ProfileEditDialog athlete={athlete} open={showProfileEdit} onClose={() => setShowProfileEdit(false)} onSaved={refreshAthlete} />
       <FeedbackDialog athlete={athlete} open={showFeedback} onClose={() => setShowFeedback(false)} />
@@ -1214,7 +1274,7 @@ function WorkoutsTab({ athlete, disciplines }) {
 /* ════════════════════════════════════════════════════════
    PT TAB
    ════════════════════════════════════════════════════════ */
-function PTTab({ ptBalance, ptBookings, ptCoach, ptCoachId, athlete, onBook, onCancelled, onViewCoach }) {
+function PTTab({ ptBalance, ptPackages, ptBookings, athlete, onBook, onCancelled, onViewCoach }) {
   const { t } = useLanguage()
   const [cancelling, setCancelling] = useState(null)
 
@@ -1285,24 +1345,81 @@ function PTTab({ ptBalance, ptBookings, ptCoach, ptCoachId, athlete, onBook, onC
     onCancelled?.()
   }
 
+  const pkgs = ptPackages || []
+
   return (
     <>
       <div className="pt-balance">
         <div className="pt-count">{ptBalance}</div>
         <div>
           <div className="pt-label">{t('pt.sessionsRemaining')}</div>
-          {ptCoach && (
+          {pkgs.length > 0 && (
             <div className="pt-sublabel">
-              {t('pt.assignedCoach')}{' '}
-              {onViewCoach ? (
-                <span className="coach-link" onClick={onViewCoach}>{ptCoach}</span>
-              ) : ptCoach}
+              {pkgs.length === 1
+                ? `${pkgs.length} ${t('pt.package') || 'package'}`
+                : `${pkgs.length} ${t('pt.packages') || 'packages'}`}
             </div>
           )}
         </div>
       </div>
 
-      <button className="btn-primary" onClick={onBook} style={{ marginBottom: 14 }}>{t('pt.bookSession')}</button>
+      {pkgs.length === 0 ? (
+        <button className="btn-primary" onClick={() => onBook(null)} style={{ marginBottom: 14 }} disabled>
+          {t('pt.bookSession')}
+        </button>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 14 }}>
+          {pkgs.map((pkg) => (
+            <div key={pkg.id} className="card" style={{ padding: 0 }}>
+              <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--pf-text)', lineHeight: 1 }}>
+                      {pkg.sessionsLeft}
+                      <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--pf-text3)', marginLeft: 6 }}>
+                        / {pkg.totalSessions}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--pf-text3)', marginTop: 2 }}>
+                      {t('pt.sessionsRemaining')}
+                    </div>
+                  </div>
+                  {pkg.expiryDate && (
+                    <div style={{ textAlign: 'right', minWidth: 0 }}>
+                      <div style={{ fontSize: 11, color: 'var(--pf-text3)' }}>{t('pt.expiry') || 'Expiry'}</div>
+                      <div style={{ fontSize: 12, fontWeight: 600 }}>{formatDate(pkg.expiryDate)}</div>
+                    </div>
+                  )}
+                </div>
+                {pkg.coachNames.length > 0 && (
+                  <div style={{ fontSize: 12, color: 'var(--pf-text2)', wordBreak: 'break-word' }}>
+                    {pkg.coachNames.length > 1 ? (t('pt.coaches') || 'Coaches') : t('pt.assignedCoach')}{' '}
+                    {pkg.coachNames.map((name, i) => (
+                      <span key={pkg.coachIds[i]}>
+                        {i > 0 && ', '}
+                        <span
+                          className={onViewCoach ? 'coach-link' : ''}
+                          onClick={onViewCoach ? () => onViewCoach(pkg.coachIds[i]) : undefined}
+                        >
+                          {name}
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <button
+                  className="btn-primary"
+                  onClick={() => onBook(pkg)}
+                  disabled={pkg.sessionsLeft <= 0}
+                  style={{ alignSelf: 'stretch' }}
+                >
+                  {t('pt.bookSession')}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="card">
         <div className="card-header"><span className="card-title">{t('pt.upcomingPast')}</span></div>
@@ -1318,10 +1435,16 @@ function PTTab({ ptBalance, ptBookings, ptCoach, ptCoachId, athlete, onBook, onC
               // keep the old behaviour.
               const withinCutoff = hours !== null && hours < CANCEL_CUTOFF_HOURS && hours > -1 // only block for future/just-past slots
               const canCancel = isCancellableStatus
+              const bookingCoachName = b.coach_name || t('coaches.coachLabel')
               return (
                 <div key={b.id} className="booking-item">
                   <div className="booking-top">
-                    <span className={`booking-coach${onViewCoach ? ' coach-link' : ''}`} onClick={onViewCoach}>{ptCoach || t('coaches.coachLabel')}</span>
+                    <span
+                      className={`booking-coach${onViewCoach && b.coach_id ? ' coach-link' : ''}`}
+                      onClick={onViewCoach && b.coach_id ? () => onViewCoach(b.coach_id) : undefined}
+                    >
+                      {bookingCoachName}
+                    </span>
                     <span className={`booking-status ${s.cls}`}>{s.label}</span>
                   </div>
                   <div className="booking-detail">
@@ -1360,7 +1483,8 @@ function PTTab({ ptBalance, ptBookings, ptCoach, ptCoachId, athlete, onBook, onC
 /* ════════════════════════════════════════════════════════
    COACHES TAB
    ════════════════════════════════════════════════════════ */
-function CoachesTab({ ptCoachId, branchId, onViewCoach }) {
+function CoachesTab({ ptCoachIds, branchId, onViewCoach }) {
+  const ptCoachIdSet = new Set(ptCoachIds || [])
   const { t } = useLanguage()
   const [coaches, setCoaches] = useState([])
   const [loading, setLoading] = useState(true)
@@ -1403,7 +1527,7 @@ function CoachesTab({ ptCoachId, branchId, onViewCoach }) {
           <div className="coach-card-info">
             <div className="coach-card-name">
               {c.name}
-              {c.id === ptCoachId && <span className="badge badge-active" style={{ fontSize: 9 }}>{t('coaches.yourCoach')}</span>}
+              {ptCoachIdSet.has(c.id) && <span className="badge badge-active" style={{ fontSize: 9 }}>{t('coaches.yourCoach')}</span>}
             </div>
             <div className="coach-card-role">{roleLabel(c.role)}</div>
             {c.credentials && <div className="coach-card-credentials">{c.credentials}</div>}
