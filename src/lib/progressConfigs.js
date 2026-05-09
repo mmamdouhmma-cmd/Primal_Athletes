@@ -59,9 +59,9 @@ export const DISCIPLINE_SECTIONS = {
 
 // Returns the ordered section list for a discipline, or null if unknown
 // (e.g. data from a discipline we don't have a mapping for — the renderer
-// then falls back to a single bucket). Judo (653a375c-…) and Wrestling
-// (853560ae-…) intentionally fall through to the null path until their
-// progress attributes are defined on the management side.
+// then falls back to a single bucket). Judo (653a375c-…), Wrestling
+// (853560ae-…) and Kickfit (730114bb-…) intentionally fall through to the
+// null path until their progress attributes are defined on the management side.
 export function getDisciplineSections(disciplineId) {
   return DISCIPLINE_SECTIONS[disciplineId] || null;
 }
