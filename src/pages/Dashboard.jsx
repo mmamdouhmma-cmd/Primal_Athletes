@@ -80,6 +80,11 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [isDark, setIsDark] = useState(() => localStorage.getItem('pf-theme') !== 'light')
   const [screenAnim, setScreenAnim] = useState('') // for page transitions
+  // Pending free-trial state: this athlete has a matching trial_members row
+  // with status='trial' (created via website booking or by reception), and
+  // hasn't been converted to a paying member yet. Drives a "Trial Member"
+  // badge instead of "Expired" when membership_expiration_date is null/past.
+  const [isTrial, setIsTrial] = useState(false)
 
   const disciplines = athlete?._disciplines || []
   const initials = getInitials(athlete?.name)
@@ -103,7 +108,7 @@ export default function Dashboard() {
   const loadData = useCallback(async () => {
     if (!athlete?.id) return
     setLoading(true)
-    const [a, p, ptm, pb, lv] = await Promise.all([
+    const [a, p, ptm, pb, lv, tm] = await Promise.all([
       supabase.from('attendance').select('*').eq('student_id', athlete.id).order('date', { ascending: false }),
       supabase.from('member_progress').select('*, coaches:evaluated_by(id, name)').eq('member_id', athlete.id).order('evaluated_at', { ascending: false }),
       supabase.from('pt_members')
@@ -113,11 +118,24 @@ export default function Dashboard() {
         .order('created_at', { ascending: false }),
       supabase.from('personal_training_bookings').select('*').eq('student_id', athlete.id).order('booking_date', { ascending: false }).limit(20),
       supabase.from('student_discipline_levels').select('discipline_id, level, bjj_belt, bjj_stripes').eq('student_id', athlete.id),
+      // Pending trial lookup. Match on phone_number (the website's bookTrial
+      // copies phone from trial_members → students unchanged, so a raw equality
+      // works for website-sourced trials). Reception-entered trials also
+      // typically share the same phone. Limit 1 — we only care whether any
+      // unconverted trial exists.
+      athlete.phone_number
+        ? supabase.from('trial_members')
+            .select('id, status')
+            .eq('phone_number', athlete.phone_number)
+            .eq('status', 'trial')
+            .limit(1)
+        : Promise.resolve({ data: [] }),
     ])
     setAttendance(a.data || [])
     setProgress(p.data || [])
     setPtBookings(pb.data || [])
     setLevelRows(lv.data || [])
+    setIsTrial((tm.data || []).length > 0)
 
     // Build per-package PT data + multi-coach
     const ptmRows = ptm.data || []
@@ -307,6 +325,7 @@ export default function Dashboard() {
               initials={initials}
               isExpired={isExpired}
               isExpiring={isExpiring}
+              isTrial={isTrial}
               daysLeft={daysLeft}
               switchTheme={switchTheme}
               isDarkTheme={isDark}
@@ -322,7 +341,7 @@ export default function Dashboard() {
                 <div className="profile-info">
                   <h2>{athlete?.name}</h2>
                   <div className="profile-meta">
-                    <StatusBadge isExpired={isExpired} isExpiring={isExpiring} />
+                    <StatusBadge isExpired={isExpired} isExpiring={isExpiring} isTrial={isTrial} />
                     {discNames.map((d) => <DiscBadge key={d.id} disc={d} />)}
                   </div>
                 </div>
@@ -403,8 +422,13 @@ export default function Dashboard() {
    REUSABLE PIECES
    ════════════════════════════════════════════════════════ */
 
-function StatusBadge({ isExpired, isExpiring }) {
+function StatusBadge({ isExpired, isExpiring, isTrial }) {
   const { t } = useLanguage()
+  // Trial precedence: when membership is unset/past AND a pending trial row
+  // exists, show "Trial Member" instead of the alarming "Expired" red.
+  // If membership is in the future (athlete paid + trial wasn't yet converted),
+  // the real membership status wins.
+  if (isTrial && isExpired) return <span className="badge badge-trial">{t('status.trial')}</span>
   if (isExpired) return <span className="badge badge-expired">{t('status.expired')}</span>
   if (isExpiring) return <span className="badge badge-expiring">{t('status.expiring')}</span>
   return <span className="badge badge-active">{t('status.active')}</span>
@@ -1541,7 +1565,7 @@ function CoachesTab({ ptCoachIds, branchId, onViewCoach }) {
 /* ════════════════════════════════════════════════════════
    PROFILE SCREEN
    ════════════════════════════════════════════════════════ */
-function ProfileScreen({ athlete, disciplines, levelsByDiscId, initials, isExpired, isExpiring, daysLeft, switchTheme, isDarkTheme, logout }) {
+function ProfileScreen({ athlete, disciplines, levelsByDiscId, initials, isExpired, isExpiring, isTrial, daysLeft, switchTheme, isDarkTheme, logout }) {
   const { t } = useLanguage()
   const ratedDiscs = (disciplines || []).filter((d) => !/gym access/i.test(d.name || ''))
   return (
@@ -1553,7 +1577,7 @@ function ProfileScreen({ athlete, disciplines, levelsByDiscId, initials, isExpir
         </div>
         <h2 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 19, color: 'var(--pf-text)' }}>{athlete?.name}</h2>
         <div className="profile-meta" style={{ justifyContent: 'center', marginTop: 6 }}>
-          <StatusBadge isExpired={isExpired} isExpiring={isExpiring} />
+          <StatusBadge isExpired={isExpired} isExpiring={isExpiring} isTrial={isTrial} />
           {disciplines.map((d) => <DiscBadge key={d.id} disc={d} />)}
         </div>
       </div>

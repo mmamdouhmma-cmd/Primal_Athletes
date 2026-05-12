@@ -54,6 +54,7 @@ const en = {
     active: "Active",
     expired: "Expired",
     expiring: "Expiring",
+    trial: "Trial Member",
     pending: "Pending",
     approved: "Approved",
     completed: "Completed",
@@ -363,6 +364,7 @@ const ar = {
   status: {
     active: "نشط",
     expired: "منتهي",
+    trial: "عضو تجريبي",
     expiring: "على وشك الانتهاء",
     pending: "قيد الانتظار",
     approved: "موافق عليه",
@@ -673,6 +675,7 @@ const ru = {
   status: {
     active: "Активно",
     expired: "Истёк",
+    trial: "Пробный участник",
     expiring: "Скоро истекает",
     pending: "В ожидании",
     approved: "Одобрено",

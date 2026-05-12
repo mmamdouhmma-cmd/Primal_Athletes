@@ -435,6 +435,14 @@ html, body {
   border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
+/* "Trial Member" — informational brand-blue, distinct from the alarming red.
+   Used when membership is unset/past AND a pending trial_members row exists. */
+.badge-trial {
+  background: var(--pf-blue-soft);
+  color: var(--pf-blue-light);
+  border: 1px solid rgba(27, 94, 197, 0.25);
+}
+
 .badge-disc {
   border: 1px solid;
 }
