@@ -8,6 +8,7 @@ import PTBookingDialog from '../components/PTBookingDialog'
 import CoachProfileDialog from '../components/CoachProfileDialog'
 import ProfileEditDialog from '../components/ProfileEditDialog'
 import FeedbackDialog from '../components/FeedbackDialog'
+import InvoicesTab from '../components/InvoicesTab'
 import LanguageSwitcher from '../components/LanguageSwitcher'
 import { useLanguage } from '../context/LanguageContext'
 import {
@@ -266,6 +267,7 @@ export default function Dashboard() {
     { id: 'workouts', label: t('tabs.workouts') },
     { id: 'pt', label: t('tabs.pt') },
     { id: 'coaches', label: t('tabs.coaches') },
+    { id: 'invoices', label: t('tabs.invoices') },
   ]
 
   return (
@@ -381,6 +383,7 @@ export default function Dashboard() {
                 {tab === 'workouts' && <WorkoutsTab athlete={athlete} disciplines={disciplines} />}
                 {tab === 'pt' && <PTTab ptBalance={ptBalance} ptPackages={ptPackages} ptBookings={ptBookings} athlete={athlete} onBook={(pkg) => { setBookingPackage(pkg); setShowPTBooking(true) }} onCancelled={loadData} onViewCoach={(coachId) => { setViewCoachId(coachId); setViewCoachAssigned(true); setShowCoachProfile(true) }} />}
                 {tab === 'coaches' && <CoachesTab ptCoachIds={ptCoachIds} branchId={athlete?.branch_id} onViewCoach={(id) => { setViewCoachId(id); setViewCoachAssigned(ptCoachIds.includes(id)); setShowCoachProfile(true) }} />}
+                {tab === 'invoices' && <InvoicesTab athlete={athlete} disciplines={disciplines} />}
               </div>
             </>
           )}
