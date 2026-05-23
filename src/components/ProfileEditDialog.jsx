@@ -20,6 +20,7 @@ export default function ProfileEditDialog({ athlete, open, onClose, onSaved }) {
   const [photoPreview, setPhotoPreview] = useState(null)
   const [photoFile, setPhotoFile] = useState(null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [marketingOptIn, setMarketingOptIn] = useState(false)
   const fileRef = useRef()
 
   useEffect(() => {
@@ -30,6 +31,7 @@ export default function ProfileEditDialog({ athlete, open, onClose, onSaved }) {
       setOldPw(''); setNewPw(''); setError(''); setSuccess('')
       setPhotoPreview(athlete.photo_url || athlete.photo || null)
       setPhotoFile(null)
+      setMarketingOptIn(!!athlete.marketing_opt_in)
     }
   }, [open, athlete])
 
@@ -52,6 +54,18 @@ export default function ProfileEditDialog({ athlete, open, onClose, onSaved }) {
     const updates = { email, phone_number: phone }
     if (dob) updates.date_of_birth = dob
     if (newPw) updates.password = newPw
+
+    // Marketing opt-in toggle — only stamp _at + _source when transitioning
+    // from false → true. Athlete unchecking is treated as a preference
+    // change (we set marketing_opt_in=false but leave the original timestamp
+    // / source untouched as audit history).
+    if (marketingOptIn !== !!athlete.marketing_opt_in) {
+      updates.marketing_opt_in = marketingOptIn
+      if (marketingOptIn) {
+        updates.marketing_opt_in_at = new Date().toISOString()
+        updates.marketing_opt_in_source = 'athlete_app'
+      }
+    }
 
     // Upload new photo first — if Storage is down we fail before touching the row.
     // On success: write URL to photo_url and null the legacy photo column
@@ -134,6 +148,30 @@ export default function ProfileEditDialog({ athlete, open, onClose, onSaved }) {
           <div className="form-group">
             <label className="form-label">{t('profileEdit.dob')}</label>
             <input className="form-input" type="date" value={dob} onChange={(e) => setDob(e.target.value)} />
+          </div>
+
+          {/* WhatsApp marketing opt-in — unchecked by default. Meta requires
+              the consent to be explicit; this toggle is the audit trail. */}
+          <div style={{ borderTop: '1px solid var(--pf-border)', paddingTop: 14, marginTop: 6, marginBottom: 14 }}>
+            <label style={{
+              display: 'flex', alignItems: 'flex-start', gap: 10,
+              padding: '10px 12px', borderRadius: 8,
+              background: 'var(--pf-surface-alt, transparent)',
+              border: '1px solid var(--pf-border)', cursor: 'pointer',
+            }}>
+              <input
+                type="checkbox"
+                checked={marketingOptIn}
+                onChange={(e) => setMarketingOptIn(e.target.checked)}
+                style={{ marginTop: 2, accentColor: 'var(--pf-blue, #1B5EC5)', flexShrink: 0 }}
+              />
+              <span style={{ fontSize: 12, color: 'var(--pf-text2)', lineHeight: 1.45 }}>
+                {t('profileEdit.marketingOptInLabel') || 'I agree to receive promotional WhatsApp messages from Primal Fitness.'}
+                <span style={{ display: 'block', fontSize: 11, color: 'var(--pf-text3)', marginTop: 2 }}>
+                  {t('profileEdit.marketingOptInHint') || 'Booking confirmations and class reminders always send regardless. Reply STOP to opt out.'}
+                </span>
+              </span>
+            </label>
           </div>
 
           {/* Password section */}

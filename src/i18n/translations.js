@@ -268,6 +268,8 @@ const en = {
     errPasswordTooShort: "New password must be at least 4 characters.",
     errPhotoUpload: "Photo upload failed: ",
     successUpdated: "Profile updated!",
+    marketingOptInLabel: "I agree to receive promotional WhatsApp messages from Primal Fitness.",
+    marketingOptInHint: "Booking confirmations and class reminders always send regardless. Reply STOP to opt out.",
   },
   feedbackDialog: {
     title: "Send feedback",
@@ -605,6 +607,8 @@ const ar = {
     errPasswordTooShort: "يجب أن تتكون كلمة المرور الجديدة من 4 أحرف على الأقل.",
     errPhotoUpload: "فشل رفع الصورة: ",
     successUpdated: "تم تحديث الملف الشخصي!",
+    marketingOptInLabel: "أوافق على تلقّي رسائل واتساب ترويجية من Primal Fitness.",
+    marketingOptInHint: "تأكيدات الحجز وتذكيرات الفصول تُرسل دائمًا. أرسل STOP لإلغاء الاشتراك.",
   },
   feedbackDialog: {
     title: "إرسال ملاحظات",
@@ -942,6 +946,8 @@ const ru = {
     errPasswordTooShort: "Новый пароль должен содержать не менее 4 символов.",
     errPhotoUpload: "Не удалось загрузить фото: ",
     successUpdated: "Профиль обновлён!",
+    marketingOptInLabel: "Я согласен получать рекламные сообщения WhatsApp от Primal Fitness.",
+    marketingOptInHint: "Подтверждения бронирования и напоминания о занятиях отправляются в любом случае. Ответьте STOP, чтобы отписаться.",
   },
   feedbackDialog: {
     title: "Отправить отзыв",
